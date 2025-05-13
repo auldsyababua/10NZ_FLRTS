@@ -4,7 +4,8 @@ Date: May 12, 2025
 
 *For all LLM/AI collaboration standards, code commenting, and development philosophy, see [AI_Collaboration_Guide.md](./AI_Collaboration_Guide.md).*
 
-# 1. Introduction### 1.1. Purpose of the Document
+# 1. Introduction
+## 1.1. Purpose of the Document
 This document outlines the design specifications for the 10NetZero-FLRTS (Field Reports, Lists, Reminders, Tasks, and Subtasks) system. It details the system architecture, data model, user interaction flows, third-party integrations, and core functionalities. This document serves as a foundational guide for the development and implementation of the MVP (Minimum Viable Product) and provides a roadmap for future enhancements.
 ## 1.2. System Overview (10NetZero-FLRTS)
 The 10NetZero-FLRTS system is designed to be a comprehensive platform for managing operational items such as field reports, lists, reminders, and tasks. It aims to streamline workflows for users, particularly those in field operations, by leveraging natural language processing, a robust data backend, and seamless integration with tools like Telegram and Todoist. The system will feature a Telegram bot and MiniApp as the primary user interfaces, supported by a Flask backend, Airtable databases, and AI capabilities for parsing. Integration of specialized AI for document-based knowledge work (like SiteGPT concepts) is deferred post-MVP. This system integrates and expands upon concepts from the user's "10NetZero Integrated Platform Design (TgBot + SiteGPT)" document.
@@ -15,7 +16,8 @@ The 10NetZero-FLRTS system is designed to be a comprehensive platform for managi
 * **Seamless Integration:** Leverage existing tools like Todoist for their strengths in task management and reminders.
 * **Scalability and Maintainability:** Design a modular architecture that can adapt to future needs and growth.
 
-⠀2. System Architecture### 2.1. Key Components
+2. System Architecture
+## 2.1. Key Components
 The 10NetZero-FLRTS system comprises the following key components:
 **1** **Telegram Bot & MiniApp (Primary User Interface):**
 * Built using the Telegram Bot API.
@@ -44,7 +46,7 @@ The 10NetZero-FLRTS system comprises the following key components:
 * Used to automatically create, store, and manage Standard Operating Procedure (SOP) documents for each site.
 * Links to these documents are stored in the Sites table in Airtable.
 
-⠀2.2. High-Level Data Flow for FLRTS Creation (Natural Language via Telegram)
+2.2. High-Level Data Flow for FLRTS Creation (Natural Language via Telegram)
 **1** **User Input:** User sends a natural language command to the Telegram bot/MiniApp.
 **2** **Flask Backend:** Receives the input.
 **3** **General LLM Processing:** Backend sends raw text to the General LLM (e.g., OpenAI) with a structured prompt (including "bumpers" like lists of sites/personnel). LLM returns a JSON object with parsed entities and a formatted string for Todoist.
@@ -55,7 +57,7 @@ The 10NetZero-FLRTS system comprises the following key components:
 * The FLRTS item is then created in the 10NetZero-FLRTS base, linking to the Todoist Task ID (if applicable) and any master data (Sites, Personnel).
 **7** **User Confirmation:** Bot/MiniApp confirms item creation to the user.
 
-⠀3. Data Model (Airtable)The system will utilize two primary Airtable bases:
+3. Data Model (Airtable)
 ## 3.1. 10NetZero_Main_Datastore Base
 This base serves as the Single Source of Truth (SSoT) for core business entities. It is designed as a single Airtable base containing multiple interlinked tables.
 ### 3.1.1. Sites Table (Master)
@@ -80,7 +82,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * IsActive (Checkbox)
 * Initial_Site_Setup_Completed_by_App (Checkbox, Default: FALSE - System field: Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists and SOP Google Document. Used by safety net automations.)
 
-⠀3.1.2. Personnel Table (Master)
+### 3.1.2. Personnel Table (Master)
 * **Purpose:** Master list of all employees/users who might interact with or be referenced in the system.
 * **Key Fields (See Appendix A for full list):**
 * PersonnelID_PK (Primary Key)
@@ -96,7 +98,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * IsActive (Checkbox, Default: TRUE)
 * Default_Employee_Lists_Created (Checkbox, Default: FALSE - System field: Set to TRUE by the Flask application after successfully creating the employee's default "Onboarding" list. Used by safety net automations.)
 
-⠀3.1.3. Partners Table (Master)
+### 3.1.3. Partners Table (Master)
 * **Purpose:** Master list of partner organizations or individuals, primarily those with an investment, lending, or funding relationship concerning 10NetZero projects/sites.
 * **Key Fields (See Appendix A for full list):**
 * PartnerID_PK (Primary Key)
@@ -119,7 +121,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * Notes (Long Text)
 * IsActive (Checkbox, Default: TRUE)
 
-⠀3.1.4. Site_Partner_Assignments Table (Junction Table)
+### 3.1.4. Site_Partner_Assignments Table (Junction Table)
 * **Purpose:** Links Sites and Partners to define specific partnership details for each site.
 * **Key Fields (See Appendix A for full list):**
 * AssignmentID_PK (Primary Key)
@@ -132,7 +134,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * PartnershipContract_Link (Link to Licenses & Agreements table)
 * Notes (Long Text)
 
-⠀3.1.5. Vendors Table (Master)
+### 3.1.5. Vendors Table (Master)
 * **Purpose:** Master list of vendor organizations/individuals.
 * **Key Fields (See Appendix A for full list):**
 * VendorID_PK (Primary Key)
@@ -155,7 +157,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * Notes (Long Text)
 * IsActive (Checkbox, Default: TRUE)
 
-⠀3.1.6. Site_Vendor_Assignments Table (Junction Table)
+### 3.1.6. Site_Vendor_Assignments Table (Junction Table)
 * **Purpose:** Links Sites and Vendors to define specific service or supply details for each site.
 * **Key Fields (See Appendix A for full list):**
 * VendorAssignmentID_PK (Primary Key)
@@ -165,7 +167,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * VendorContract_Link (Link to Licenses & Agreements table)
 * Notes (Long Text)
 
-⠀3.1.7. Equipment Table (Master - General Assets)
+### 3.1.7. Equipment Table (Master - General Assets)
 * **Purpose:** Master list of general physical assets (non-ASIC). A "Warehouse" can be a designated Site record for location tracking.
 * **Key Fields (See Appendix A for full list):**
 * AssetTagID_PK (Primary Key)
@@ -188,7 +190,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * Employee_Log_Link (Link to Employee_Equipment_Log table)
 * Notes (Long Text)
 
-⠀3.1.8. ASICs Table (Master - Mining Hardware)
+### 3.1.8. ASICs Table (Master - Mining Hardware)
 * **Purpose:** Dedicated master list for Bitcoin mining hardware. A "Warehouse" can be a designated Site record for location tracking.
 * **Key Fields (See Appendix A for full list):**
 * ASIC_ID_PK (Primary Key - Autonumber, or SerialNumber if reliably unique)
@@ -213,7 +215,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * ASIC_Manual (Attachment)
 * Notes (Long Text)
 
-⠀3.1.9. Employee_Equipment_Log Table (Junction Table)
+### 3.1.9. Employee_Equipment_Log Table (Junction Table)
 * **Purpose:** Tracks equipment/tools lent to employees.
 * **Key Fields (See Appendix A for full list):**
 * LogID_PK (Primary Key)
@@ -226,7 +228,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * IsCurrentlyAssigned (Checkbox or Formula based on DateReturned)
 * Notes (Long Text, Rich Text)
 
-⠀3.1.10. Operators Table (Master)
+### 3.1.10. Operators Table (Master)
 * **Purpose:** Master list of entities operating the wells/sites.
 * **Key Fields (See Appendix A for full list):**
 * OperatorID_PK (Primary Key)
@@ -238,7 +240,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * OperatedSites_Link (Link to Sites table)
 * Notes (Long Text)
 
-⠀3.1.11. Licenses & Agreements Table (Master)
+### 3.1.11. Licenses & Agreements Table (Master)
 * **Purpose:** Consolidated repository for contracts, permits, licenses, and other agreements.
 * **Key Fields (See Appendix A for full list):**
 * AgreementID_PK (Primary Key)
@@ -258,7 +260,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * KeyTerms_Summary (Long Text, Rich Text)
 * Notes (Long Text)
 
-⠀3.1.12. Mining_Pool_Accounts Table (Master)
+### 3.1.12. Mining_Pool_Accounts Table (Master)
 * **Purpose:** Information about accounts with Bitcoin mining pools.
 * **Key Fields (See Appendix A for full list):**
 * PoolAccountID_PK (Primary Key)
@@ -275,18 +277,19 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * ASICs_Using_Pool_Link (Link to ASICs table)
 * Notes (Long Text)
 
-⠀3.2. 10NetZero-FLRTS Base This base holds operational data for the FLRTS application and synced data from the Main Datastore.
+## 3.2. 10NetZero-FLRTS Base
+This base holds operational data for the FLRTS application and synced data from the Main Datastore.
 ### 3.2.1. Synced_Sites Table
 * **Source:** One-way sync from Sites table in 10NetZero_Main_Datastore.
 * **Purpose:** Provides a read-only local reference to sites for linking within the FLRTS base.
 * **Fields:** Mirrors the Sites table from the Main Datastore.
 
-⠀3.2.2. Synced_Personnel Table
+### 3.2.2. Synced_Personnel Table
 * **Source:** One-way sync from Personnel table in 10NetZero_Main_Datastore.
 * **Purpose:** Provides a read-only local reference to personnel for linking.
 * **Fields:** Mirrors the Personnel table from the Main Datastore.
 
-⠀3.2.3. Users Table (FLRTS App Specific)
+### 3.2.3. Users Table (FLRTS App Specific)
 * **Purpose:** Manages FLRTS application-specific user settings, roles, and permissions. Links to the master personnel record (Synced_Personnel).
 * **Key Fields (See Appendix A for full list):**
 * UserID_PK (Primary Key)
@@ -296,7 +299,8 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * Permission Flags (Checkboxes - as per PDF pages 3, 6, 7 [source: FULL%2010NZ%20Custom%20GPT%20w-%20Telegram%20Bot%20Design%20Doc.pdf.pdf]): Can_Create_Site, Can_Configure_Integrations, etc. (detailed in Appendix A).
 * DateAdded (Created Time)
 
-⠀3.2.4. FLRTS_Items Table * Purpose: Core table for all FLRTS items.
+### 3.2.4. FLRTS_Items Table
+* **Purpose:** Core table for all FLRTS items.
 * **Key Fields (See Appendix A for full list):**
 * ItemID_PK (Primary Key - Autonumber or UUID)
 * ItemType (Single Select: "Field Report", "List", "Reminder", "Task", "Subtask")
@@ -325,7 +329,8 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * ArchivedAt_Timestamp (Date, with time option)
 * DoneAt_Timestamp (Date, with time option)
 
-⠀3.2.5. Field_Report_Edits Table * Purpose: Stores append-only edits for Field Reports, ensuring history is maintained.
+### 3.2.5. Field_Report_Edits Table
+* **Purpose:** Stores append-only edits for Field Reports, ensuring history is maintained.
 * **Key Fields (See Appendix A for full list):**
 * EditID_PK (Primary Key - Autonumber)
 * ParentFieldReport_Link (Link to FLRTS_Items where ItemType="Field Report", Required)
@@ -333,17 +338,18 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * Timestamp (Created Time)
 * EditText (Long Text, Required)
 
-⠀3.3. Data Synchronization Strategy #### 3.3.1. Main Datastore to FLRTS Base (Airtable Sync)
+## 3.3. Data Synchronization Strategy
+### 3.3.1. Main Datastore to FLRTS Base (Airtable Sync)
 * Sites and Personnel tables from 10NetZero_Main_Datastore will be one-way synced to Synced_Sites and Synced_Personnel in the 10NetZero-FLRTS base using Airtable's native sync feature.
 * This provides read-access to master data within the FLRTS application context.
 
-⠀3.3.2. FLRTS App Writing to Main Datastore (API)
+### 3.3.2. FLRTS App Writing to Main Datastore (API)
 * If a new Site or Personnel needs to be created via the FLRTS app (e.g., user specifies a new site during task creation):
 1 The Flask backend will first make an API call to the 10NetZero_Main_Datastore to create the new record (e.g., in the master Sites table, including triggering SOP Google Doc creation for sites).
 2 The backend will use the Record ID returned from this API call to immediately link the new FLRTS item in the 10NetZero-FLRTS base.
 3 This ensures data integrity and correct linking, even before Airtable's native sync updates the corresponding Synced_Sites or Synced_Personnel table.
 
-⠀3.3.3. Todoist and Airtable Synchronization
+### 3.3.3. Todoist and Airtable Synchronization
 * **Source of Truth:**
 * Airtable is the SSoT for the complete FLRTS item record and its 10NetZero-specific metadata.
 * Todoist is the SSoT for due dates, completion status, and reminder delivery for items it manages.
@@ -354,7 +360,7 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 * Polling Todoist for changes can be an MVP alternative if webhooks are complex initially.
 * **Updates (Airtable to Todoist - Minimized for MVP):** Changes to core task properties (status, due date) in Airtable should ideally be initiated via actions that first update Todoist, with changes flowing back. Direct edits in Airtable to these fields might not sync to Todoist in MVP unless explicitly built.
 
-⠀4. User Roles, Permissions, and Access Control
+4. User Roles, Permissions, and Access Control
 ## 4.1. Admin Role
 * **Description:** The Admin role has the highest level of access and control within the system. Admins can perform all actions, including managing users, permissions, and system settings.
 * **Permissions:**
