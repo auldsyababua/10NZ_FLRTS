@@ -73,4 +73,58 @@ This document provides explicit, actionable standards and preferences for any AI
 
 ---
 
+## Field Definition Formatting Standards
+
+To ensure clarity, consistency, and ease of use for both humans and AI agents, all field definitions in this project must follow these conventions:
+
+### 1. Description
+- **Purpose:** Explains the business meaning and intent of the field.
+- **Content:** Clearly state what the field is for and why it exists.
+- **Example:**  
+  > **Description:** System field. Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists (e.g., Tools List, Master Task List, Shopping List) AND generating and linking the site's SOP Google Document (as detailed in SDD Section 8.1). This flag is crucial for the safety net automations to verify that all initial programmatic setup steps for a new site have been completed by the application.
+
+### 2. Field Type Details
+- **Purpose:** Provides specific guidance or important considerations on how to configure this field within Airtable.
+- **Content:** Focus on technical setup, such as field type, default values, formulas, or special Airtable features.
+- **Example:**  
+  > **Field Type Details:** Default value for new records is FALSE.  
+  > (Other examples: "Autonumber preferred for simplicity," "Enable rich text formatting," "Formula: ...", "Precision should be at least 6 decimal places.")
+
+### 3. Notes (Optional)
+- **Purpose:** For any additional context, usage tips, or clarifications that do not fit in the above.
+- **Content:** Use only when needed for extra information about the field's design, usage, or relationships.
+- **Example:**  
+  > **Notes:** This field is set by automation and should not be edited manually.
+
+### 4. Required
+- **Purpose:** Indicates whether the field is required, optional, or system-managed.
+- **Content:**  
+  > **Required:** Yes  
+  > **Required:** No  
+  > **Required:** No (System-managed)
+
+---
+
+**Formatting Rules:**
+- Always use bolded labels (**Description:**, **Field Type Details:**, **Notes:**, **Required:**).
+- Always use the order: Description, Field Type Details, Notes (if present), Required.
+- Indent sub-bullets under each field for readability.
+- Omit the "Notes" sub-bullet if not needed.
+- Do not use italics for these labels.
+
+**Example Field Definition:**
+
+```markdown
+18. **Initial_Site_Setup_Completed_by_App** (Checkbox, Default: FALSE)
+    * **Description:** System field. Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists (e.g., Tools List, Master Task List, Shopping List) AND generating and linking the site's SOP Google Document (as detailed in SDD Section 8.1). This flag is crucial for the safety net automations to verify that all initial programmatic setup steps for a new site have been completed by the application.
+    * **Field Type Details:** Default value for new records is FALSE.
+    * **Required:** No (System-managed)
+```
+
+---
+
+All contributors and AI agents must follow these conventions for every field definition and review for consistency before submitting changes.
+
+---
+
 *This document may be updated by the User at any time. Always check for the latest version before starting new work.* 

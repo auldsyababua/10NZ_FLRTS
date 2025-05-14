@@ -3,7 +3,15 @@
 **Purpose:** This document serves as a companion to the main System Design Document (SDD) for the 10NetZero-FLRTS project. It provides detailed notes, LLM "meta-prompts," code block structures, and integration instructions for developing the system components, with a strong emphasis on LLM-assisted code generation. Strict compliance with the main SDD (particularly Section 0: AI Collaboration Guide & Project Directives) is assumed.
 
 # 1. Session Log with AI Collaborator
+
 This log tracks key decisions, changes in philosophy, and significant design discussions by session to provide context for future development and AI collaboration.
+
+### Session 6 (AI: Gemini) - may 14, 2025
+
+* Finalized the simplified MVP roles/permissions model (single "FLRTS Operator" for bot, admin functions out-of-band).
+* Confirmed keeping granular permission fields in the Users table schema (Appendix A) for future-proofing, while the MVP application logic (SDD Section 4) remains simple.
+* Reviewed and confirmed updates to SDD Section 4 and Appendix A.2.3.
+* Identified minor consistency checks for the documents.
 
 ### Session 5 (AI: Gemini) - may 12, 2025
 
