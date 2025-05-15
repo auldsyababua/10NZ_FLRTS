@@ -6,12 +6,99 @@
 
 This log tracks key decisions, changes in philosophy, and significant design discussions by session to provide context for future development and AI collaboration.
 
-### Session 6 (AI: Gemini) - may 14, 2025
+### Session 7 (AI: Gemini) - may 15, 2025
+
+
+**Project Handoff: 10NetZero-FLRTS System**
+
+**Date:** May 15, 2025
+**Current AI Collaborator:** Gemini (Session 7)
+**Next AI Collaborator:** [LLM Name/Version]
+
+**1. Project Overview:**
+The 10NetZero-FLRTS system is designed for managing Field Reports, Lists, Reminders, Tasks, and Subtasks. The primary user interface was initially conceived as a Telegram Bot/MiniApp, supported by a Flask backend. Original plans involved Airtable for data storage, and integrations with a General Purpose LLM (for NLP), Todoist (for task/reminder management), and Google Drive (for SOP documents).
+**Significant architectural shifts towards using Noloco as the primary UI platform and its internal database ("Noloco Tables") have been decided (see Section 2).**
+
+**2. Current Status & Key Architectural Decisions (as of end of Session 7):**
+
+* **UI Platform:** **Noloco** has been selected as the primary platform for building web-based UIs and dashboards for various user roles.
+* **Data Backend:** The project will use **Noloco's internal database ("Noloco Tables")** instead of Airtable.
+    * The user is comfortable relying on Noloco's "Data Explorer" / "Data Table 2.0" for administrative data management tasks, foregoing Airtable's direct UI for this purpose.
+* **Todoist Integration:** Will be **kept for the MVP phase**, utilized minimally for its specific strengths in NLP for date parsing and its robust reminder engine. A post-MVP evaluation will determine if it can be fully replaced by Noloco's capabilities or custom solutions.
+* **Flask Backend Role:** Remains a critical component for:
+    * Handling API interactions for the Telegram Bot/MiniApp.
+    * Interacting with Noloco's GraphQL API to perform CRUD operations on Noloco Tables.
+    * Executing complex programmatic server-side logic (e.g., intricate Google Drive SOP generation steps if Noloco's native integration is insufficient, advanced data transformations).
+    * Mediating the Todoist integration (syncing task data with Noloco Tables via its API).
+    * Serving as a potential API endpoint for any custom Raycast extensions.
+* **Raycast & Raycast AI:** Considered a valuable *complementary* tool for macOS users (including the project lead) to enhance productivity, assist in development (code generation/explanation for extensions, Flask, Noloco API interactions, documentation), and potentially serve as an alternative quick-access interface to the FLRTS system via custom Raycast extensions. It is **not** a replacement for the core Noloco UI, Flask backend, Noloco Tables, or cross-platform interfaces like the Telegram bot.
+* **LLM Integration (SDD Section 6):** The SDD section detailing "LLM Integration & Prompting" (original Section 6) has been deferred to "Future Features" by the user. The General Purpose LLM for parsing natural language input (e.g., from Telegram or Raycast) before hitting Flask/Todoist/Noloco is still a component.
+* **MVP Roles & Permissions Simplification:** The earlier decision for a single "FLRTS Operator" role for Telegram Bot/MiniApp users (with admin functions out-of-band) still stands but will now be implemented within Noloco's permission system for web UIs. Granular permission flags in the conceptual `Users` table (to be a Noloco Collection) are for future scalability.
+
+**3. Key Documents & Their Status:**
+
+* **`system_design_doc.md` (SDD):**
+    * Current Version: 1.5
+    * Date: May 14, 2025
+    * **Status:** The document header reflects v1.5. However, its content **requires significant updates** to align with the Noloco-centric architecture. Key sections for revision include:
+        * Section 2 (System Architecture): Replace Airtable with Noloco Tables, update data flows.
+        * Section 3 (Data Model): Rewrite to describe schema implementation in Noloco Collections, revise data synchronization for Noloco & Todoist.
+        * Section 4 (User Roles, Permissions, and Access Control): Adapt admin functions considering Noloco's UI and permission model.
+        * Section 8 (Other Key Functionalities): Revise programmatic list/SOP creation for Noloco backend, re-think safety nets.
+* **`appendix_a.md` (Conceptual Schema Definitions):**
+    * Status: The fundamental field definitions are largely intact. However, "Field Type Details" and notes need systematic updating to map Airtable types to Noloco's internal database field types and functionalities. The correction of field 18 in A.1.1 to `Initial_Site_Setup_Completed_by_App` is noted as approved.
+* **`implementation_guide.md`:**
+    * Current Version: 0.2
+    * Date: May 14, 2025
+    * Status: Updated with the latest version, date, and Session 6 log. Session 7 details should be added by the next collaborator.
+* **`AI_Collaboration_Guide.md`:**
+    * Status: Current; no changes made in Session 7. To be strictly adhered to.
+* **User-Provided Research & Documentation:**
+    * `UI platform deep research GPT-o4-mini-high.md` (Received May 14, 2025)
+    * `UI platform deep research GPT4o.md` (Received May 14, 2025)
+    * `dataset_website-content-crawler_2025-05-14_22-47-14-154.json` (Noloco documentation dump, received May 14, 2025) - This is now the primary source for Noloco feature capabilities.
+
+**4. Key Outcomes from This Session (Session 7 with Gemini):**
+
+* **Confirmed architectural shift:** Noloco as the UI platform, using Noloco's internal "Collections" (Noloco Tables) as the primary datastore, replacing Airtable.
+* **Todoist Role:** Retained for MVP for NLP and reminder engine, with integration into the Noloco/Flask stack.
+* **Flask Backend:** Role reaffirmed for API intermediation (Telegram, Noloco, Todoist, GDrive), complex logic.
+* **Raycast:** Role defined as a complementary tool for macOS users and development aid, not a core platform replacement.
+* **Documentation Review:** Addressed Noloco's internal database capabilities against the project's schema requirements, using user-provided Noloco documentation and research.
+* **Handoff Preparation:** Current document generated.
+
+**5. Next Steps / Areas for Immediate Focus (for the Next AI Collaborator):**
+
+* **SDD Revisions (High Priority):**
+    * Begin systematically updating the `system_design_doc.md` to reflect the Noloco-centric architecture, starting with:
+        * **Section 3 (Data Model):** Detail how the schema in `appendix_a.md` will be implemented in Noloco Tables. This involves mapping field types, relationship handling (junction tables as collections, linked record fields), and how computed fields (formulas, lookups, rollups) will translate to Noloco's capabilities. Update the Data Synchronization Strategy (Flask to Noloco API, Todoist to Noloco via Flask).
+        * **Section 2 (System Architecture):** Redraw diagrams and update component descriptions.
+        * Subsequently update Sections 4 (Permissions using Noloco's model) and 8 (Key Functionalities like SOP generation, re-evaluating safety nets in Noloco).
+* **`appendix_a.md` Detailed Update:**
+    * Go through each table and field in `appendix_a.md` and update the "Field Type Details" to accurately reflect Noloco's internal database field types, relationship mechanisms, and how features like unique constraints or custom PKs will be handled (often via Noloco workflows).
+* **SDD Section 5 (UI/UX Design):**
+    * Based on the selection of Noloco, begin drafting the conceptual UI/UX for the "dream scenario" dashboards and interfaces for different user roles (FLRTS Operator, Site Manager, Admin/Executive). This will involve defining pages, key components on those pages, and user interaction flows within the Noloco environment.
+* **Task Management Deep Dive (Post-MVP Planning):**
+    * Further detail the plan for potentially phasing out Todoist post-MVP. This includes:
+        * Analyzing specific NLP requirements for date/time/recurrence and evaluating if/how they can be met by a general LLM + Flask logic or evolving Noloco features.
+        * Designing the reminder/notification system using Noloco's internal workflows (email, in-app, PWA push) and/or Flask.
+        * Defining how recurring tasks would be managed within Noloco collections and workflows.
+* **`implementation_guide.md` Update:**
+    * Add a log entry for this current session (Session 7 with Gemini).
+
+**6. Key Reminders for LLM Collaborator:**
+
+* **Adhere Strictly to `AI_Collaboration_Guide.md`:** Pay close attention to the user interaction protocol (stepwise communication, direct advice), documentation standards (painful detail, layman's terms), code commenting (extreme verbosity, embedded LLM explainer prompts), and the LLM-assisted development philosophy.
+* **Modularity & Maintainability:** Prioritize these, even over raw performance for MVP.
+* **Stepwise Communication:** Present one main step, question, or topic at a time and await user confirmation/input before proceeding.
+* **Latest Source of Truth:** Always treat newly uploaded or modified documents by the user as the latest source. The Noloco documentation JSON is now a key reference.
+
+### Session 6 (AI: Gemini) - May 14, 2025
 
 * Finalized the simplified MVP roles/permissions model (single "FLRTS Operator" for bot, admin functions out-of-band).
 * Confirmed keeping granular permission fields in the Users table schema (Appendix A) for future-proofing, while the MVP application logic (SDD Section 4) remains simple.
-* Reviewed and confirmed updates to SDD Section 4 and Appendix A.2.3.
-* Identified minor consistency checks for the documents.
+* Reviewed and confirmed updates to SDD Section 4 (User Roles, Permissions, and Access Control) and Appendix A.2.3 (Users Table) to reflect these decisions.
+* Identified minor consistency checks needed across documents, including the field name correction for `Initial_Site_Setup_Completed_by_App` in Appendix A.1.1 and versioning updates.
 
 ### Session 5 (AI: Gemini) - may 12, 2025
 

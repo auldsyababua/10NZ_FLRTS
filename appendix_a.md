@@ -69,10 +69,10 @@ This base serves as the Single Source of Truth (SSoT) for core business entities
 17. **IsActive** (Checkbox, Default: TRUE)
   * *Description:* Indicates if the site record is currently considered active and should appear in regular operational listings and interfaces. Uncheck for temporarily inactive or archived sites.
   * *Required:* No
-18. **Default_Lists_Created_by_App** (Checkbox, Default: FALSE)
-  * *Description:* System field. Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists (e.g., Tools List, Master Task List, Shopping List). Used by safety net automations to ensure these essential lists are created.
-  * *Additional Details:* We will need to ensure the successful creation of the SOP_Document_Link is also covered by a safety net, possibly by expanding this flag or adding another like Initial_Site_Setup_Completed_by_App. We can detail this in SDD Section 8.1.
-  * *Required:* No
+18. **Initial_Site_Setup_Completed_by_App** (Checkbox, Default: FALSE)
+    * **Description:** System field. Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists (e.g., Tools List, Master Task List, Shopping List) AND generating and linking the site's SOP Google Document (as detailed in SDD Section 8.1). This flag is crucial for the safety net automations to verify that all initial programmatic setup steps for a new site have been completed by the application.
+    * **Field Type Details:** Default value for new records is FALSE.
+    * **Required:** No (System-managed)
 
 ### **A.1.2. Personnel Table (Master)**
 

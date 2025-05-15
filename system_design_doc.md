@@ -505,7 +505,7 @@ For the Minimum Viable Product (MVP), the roles and permissions structure within
     1. Create the default FLRTS lists for the site (Tools, Master Task, Shopping).
     2. Connect to Google Drive, create a new SOP Google Document (e.g., from a template, titled "[SiteName] - SOP"), and retrieve its shareable link.
     3. Store this link in the SOP_Document_Link field of the new Site record.
-* Upon successful creation of the site's lists and SOP document, the Flask application will set the Initial_Site_Setup_Completed_by_App flag (Checkbox field) on the Sites record to TRUE. (This replaces the previous Default_Lists_Created_by_App flag to be more comprehensive).
+* Upon successful creation of the site's lists and SOP document, the Flask application will set the Initial_Site_Setup_Completed_by_App flag (Checkbox field) on the Sites record to TRUE.
 * **Default Lists Created (per new Site):** The following FLRTS_Items of ItemType="List" will be created:
     1. **Site Tools List:**
         * Title: "[SiteName] - Tools List"

@@ -83,18 +83,18 @@ To ensure clarity, consistency, and ease of use for both humans and AI agents, a
 - **Example:**  
   > **Description:** System field. Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists (e.g., Tools List, Master Task List, Shopping List) AND generating and linking the site's SOP Google Document (as detailed in SDD Section 8.1). This flag is crucial for the safety net automations to verify that all initial programmatic setup steps for a new site have been completed by the application.
 
-### 2. Field Type Details
+### 2. Field-Type Details
 - **Purpose:** Provides specific guidance or important considerations on how to configure this field within Airtable.
 - **Content:** Focus on technical setup, such as field type, default values, formulas, or special Airtable features.
 - **Example:**  
-  > **Field Type Details:** Default value for new records is FALSE.  
+  > **Field-Type Details:** Default value for new records is FALSE.  
   > (Other examples: "Autonumber preferred for simplicity," "Enable rich text formatting," "Formula: ...", "Precision should be at least 6 decimal places.")
 
-### 3. Notes (Optional)
+### 3. Additional Details (Optional)
 - **Purpose:** For any additional context, usage tips, or clarifications that do not fit in the above.
 - **Content:** Use only when needed for extra information about the field's design, usage, or relationships.
 - **Example:**  
-  > **Notes:** This field is set by automation and should not be edited manually.
+  > **Additional Details:** This field is set by automation and should not be edited manually.
 
 ### 4. Required
 - **Purpose:** Indicates whether the field is required, optional, or system-managed.
