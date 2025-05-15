@@ -32,16 +32,31 @@ The 10NetZero-FLRTS system is designed to be a comprehensive platform for managi
 
 ### 2.2. MVP Scope
 
-* **Core FLRTS Modules:**
-    * Field Reports: Creation, submission, viewing, and basic status tracking within Noloco.
-    * Lists (Tools, Shopping, Master Task Lists): Creation, item management, and viewing within Noloco. Site-specific lists auto-generated upon site creation.
-    * Tasks & Subtasks: Creation, assignment (to users defined in Noloco), status updates, and viewing within Noloco. Potential integration with Todoist.
-    * Reminders: Creation and viewing within Noloco. Potential integration with Todoist.
-* **User Management:** Utilize Noloco's built-in user management, potentially augmented by the `Personnel` and `Users` collections for application-specific roles and Telegram IDs (if Telegram bot functionality is retained for notifications/specific actions).
-* **Basic Reporting/Views:** Leverage Noloco's capabilities to provide views and filters for FLRTS data.
-* **SOP Document Generation & Linking:** Flask application to programmatically generate a master SOP Google Document for each new site and link it within the site's record in Noloco.
-* **Flask Backend:** To handle SOP generation, initial site setup logic, and any necessary integrations or complex business rules not achievable directly within Noloco.
-* **Telegram Bot (Reduced Scope):** Primarily for notifications triggered by events in Noloco (via Flask backend or Noloco webhooks if available) or for very specific, quick interactions if deemed necessary. The Telegram MiniApp as a full UI is deprioritized for the MVP in favor of the Noloco web interface.
+The MVP will focus on delivering core FLRTS functionalities with Noloco as the SSoT and primary web UI, and a robust natural language interface via Telegram for field technicians.
+- **Core FLRTS Modules & Data Management:**
+  - All FLRTS data (Sites, Personnel, Field Reports, Lists, List Items, Tasks, Users, etc.) managed in **Noloco Tables** as the Single Source of Truth.
+  - **Noloco Web Application UI:**
+    - Forms, views, and basic dashboards within Noloco for creating, viewing, and managing all FLRTS items by users who prefer a web interface or require comprehensive data views (e.g., administrators, site managers).
+    - User management via Noloco's built-in system, linked to `Personnel` and `Users` collections for application-specific roles.
+- **Natural Language FLRTS CRUD for Field Technicians (via Telegram Bot):**
+  - **Typed natural language input** for creating, viewing, and updating:
+    - **Tasks & Reminders:** Leveraging Todoist API for NLP (date/time parsing) and task creation, with data synced to Noloco Tables.
+    - **Field Reports:** Creation via narrative text input.
+    - **List Items:** Adding items to predefined lists (e.g., Shopping Lists, Tool Inventories).
+  - Basic querying of FLRTS items (e.g., "view my tasks for today").
+- **Flask Backend:**
+  - Handling all Telegram bot interactions.
+  - **Initial Intent Classification** of natural language input from Telegram.
+  - **NLP Orchestration:**
+    - Calling Todoist API for task/reminder NLP and creation.
+    - Calling a General Purpose LLM API for parsing field reports and list updates.
+  - All CRUD operations with Noloco Tables via its API.
+  - Programmatic generation of master SOP Google Documents for new sites and linking them in Noloco.
+  - Automated initial site setup logic (default lists, SOP link).
+- **Integrations (MVP Level):**
+  - **Todoist:** For task NLP and backend task management, synced with Noloco.
+  - **Google Drive:** For SOP document storage and linking.
+  - **General Purpose LLM:** For NLP of field reports and list updates.
 
 ## 3. Data Model and Management
 
@@ -59,20 +74,24 @@ The primary data store for the 10NetZero-FLRTS system will be **Noloco Tables**.
 
 ### 3.2. Data Flow
 
-1.  **User Input (Noloco Interface):** Users primarily interact with the system via forms, lists, and views configured in the Noloco web application. Data is created or updated directly in Noloco Tables.
-2.  **User Input (Telegram Bot - Secondary):** For any retained Telegram functionality (e.g., quick report snippet, task update), the Telegram bot communicates with the Flask backend.
-3.  **Flask Backend Processing:**
-    * Receives data from the Telegram bot (if applicable).
-    * Performs business logic, validation, and data transformation.
-    * Interacts with Noloco Tables via the Noloco API (GraphQL) to create, read, update, or delete records.
-    * Handles integrations with other services (Todoist, Google Drive, LLM) based on triggers or data from Noloco.
-    * Generates SOP documents and links them in Noloco.
-    * Can be triggered by Noloco webhooks (if configured) for reactive processing.
-4.  **Noloco Workflows/Automations:** Noloco's native automation capabilities may be used for simpler in-app logic, notifications, or data updates that don't require the Flask backend.
-5.  **Data Display (Noloco Interface):** Users view and manage data through the configured Noloco interface.
-6.  **Notifications:**
-    * Noloco may provide its own in-app or email notifications.
-    * The Flask backend can send notifications via Telegram or other channels based on system events or data changes in Noloco.
+The system supports two primary data flow pathways for FLRTS item creation and modification:
+1. **Natural Language Input Pathway (Primarily for Field Technicians via Telegram):**
+   - **a. User Input (Telegram):** User sends a typed natural language command to the Telegram bot (e.g., "create task...", "log field report...", "add to shopping list...").
+   - **b. Flask Backend - Intent Classification:** The Flask backend receives the message. An initial processing step classifies the user's intent (e.g., is this a request to create a task, log a report, update a list, or query data?).
+   - **c. Flask Backend - NLP Orchestration & External API Calls:**
+     - **For Tasks/Reminders:** Flask calls the Todoist API's Quick Add feature with the relevant part of the natural language string. Todoist parses it, creates the task, and returns structured task data.
+     - **For Field Reports, List Updates, Other FLRTS Items:** Flask constructs a prompt for a General Purpose LLM (e.g., OpenAI API) using the user's input and context. The LLM processes the text and returns structured data (e.g., JSON).
+   - **d. Flask Backend - Data Structuring & Noloco Interaction:** Flask processes the structured data received from Todoist or the LLM. It then performs the necessary CRUD (Create, Read, Update, Delete) operations on the appropriate Noloco Tables via the Noloco GraphQL API. For new items, this includes creating new records; for updates, it involves modifying existing records.
+   - **e. Flask Backend - User Feedback (Telegram):** Flask sends a confirmation, the result of a query, or an error message back to the user via the Telegram bot.
+   - **f. Noloco Tables (SSoT):** The data is now stored and managed within Noloco.
+2. **Structured Web Input Pathway (Noloco Web Application):**
+   - **a. User Input (Noloco Interface):** Users interact directly with the Noloco web application using forms, list views, and action buttons to create, view, update, or delete FLRTS records.
+   - **b. Noloco Internal Processing:** Noloco handles the data validation (as configured) and directly creates/updates records in its underlying Noloco Tables.
+   - **c. Noloco Workflows/Automations (Optional):** Noloco's native automation capabilities may trigger further actions within Noloco or call external webhooks (e.g., to the Flask backend for complex post-processing) based on data changes.
+   - **d. Flask Backend (via Webhook - Optional):** If a Noloco workflow triggers a webhook to the Flask backend, Flask can perform additional business logic, interact with third-party services, and potentially update Noloco Tables further via the API.
+   - **e. Noloco Tables (SSoT):** Data is managed within Noloco.
+
+In both pathways, **Noloco Tables serve as the Single Source of Truth.** Data entered or processed via the Telegram/Flask/NLP pathway is accessible and manageable through the Noloco Web UI, and vice-versa (respecting user permissions).
 
 ## 4. User Interface (UI) and User Experience (UX)
 
@@ -88,37 +107,70 @@ The primary interface for the 10NetZero-FLRTS system will be a web application b
     * **User Authentication & Roles:** Managed by Noloco's built-in user authentication and permission system. Different user roles will have access to different data and functionalities.
     * **Search and Filtering:** Utilize Noloco's built-in search and filtering capabilities.
 
-### 4.2. Secondary User Interface (Telegram Bot - Reduced Scope)
+### 4.2. Key Interaction Channel for Field Operations: Telegram Bot
 
-The Telegram bot's role will be significantly reduced compared to the initial concept. It will primarily serve as:
-
-* **Notification Channel:** Receiving alerts and updates triggered by events within the FLRTS system (e.g., new task assignment, reminder due, report submitted/actioned). These notifications will likely be orchestrated by the Flask backend based on data from Noloco.
-* **Quick Input/Actions (Optional, Post-MVP or if high-value):** Potentially allow for very simple, structured inputs like submitting a quick voice note for a field report snippet, or responding to a yes/no prompt. This will depend on the ease of integration and clear user benefit compared to using the Noloco web app.
-* **No MiniApp for MVP:** The development of a full Telegram MiniApp UI is deprioritized for the MVP.
+The Telegram bot serves as a crucial, direct interface for field technicians to perform rapid, low-friction Create, Read, Update, and Delete (CRUD) operations on FLRTS items using typed natural language commands (for MVP). This interface is optimized for on-the-fly interactions with minimal need for navigating complex forms, addressing the primary pain point of high-friction data entry on mobile devices.
+- **Accessibility:** Available on any device with Telegram installed.
+- **Input Method (MVP):** Typed natural language commands. Users' mobile OS voice-to-text capabilities can naturally be used to populate the text input in Telegram.
+- **Core Functionality:**
+  - **Natural Language FLRTS Creation:**
+    - **Tasks & Reminders:** Users can type commands like, "Tell Bryan to call Anthony tomorrow at 5pm about the new generator controls coming in." The backend will leverage Todoist's NLP for date/time parsing and task structuring.
+    - **Field Reports:** Users can type narrative reports like, "Field report Site Gamma: Generator A running at 80% load, fuel levels nominal. Noticed slight oil sheen near pump 3." The backend uses a general LLM for parsing.
+    - **List Item Additions:** Users can type commands like, "Add 'WD-40' and 'rags' to the Site Alpha shopping list."
+  - **Natural Language FLRTS Querying (Basic MVP):**
+    - Users can ask for their tasks (e.g., "What are my tasks for today?").
+    - View specific lists (e.g., "Show me the Site Alpha shopping list").
+  - **Natural Language FLRTS Updates (Basic MVP):**
+    - Mark tasks as complete.
+    - Make simple updates to list items if feasible via NLP.
+- **Interaction Flow:**
+  1. User sends a natural language message to the Telegram bot.
+  2. The Flask backend receives the message.
+  3. Flask performs intent classification and NLP processing (using Todoist API or General LLM API as appropriate).
+  4. Flask interacts with Noloco Tables via API to perform the CRUD operation.
+  5. The Telegram bot sends a confirmation, result, or clarifying question back to the user.
+- **User Experience Goal:** To make FLRTS management feel like a quick conversation rather than data entry. The interface avoids presenting users with multiple fields to fill out for common operations.
 
 ### 4.3. User Interaction Flows
 
-User interaction flows will be redesigned to center around the Noloco web interface. Examples:
+User interaction flows will primarily occur through the Noloco Web Application for structured input and comprehensive views, and through the Telegram Bot for low-friction, natural language-based input, especially for field technicians.
 
-* **Creating a Field Report:**
-    1.  User logs into the Noloco web application.
-    2.  Navigates to the "Field Reports" section.
-    3.  Clicks "Add New Field Report."
-    4.  Fills out the form (Site, Report Type, Content, attaches files) provided by Noloco.
-    5.  Clicks "Submit." The record is saved in the `Field_Reports` Noloco Collection.
-    6.  Relevant personnel may be notified (via Noloco notification or Telegram via Flask).
-* **Managing a Site's Tool List:**
-    1.  Site Manager logs into Noloco.
-    2.  Navigates to the specific `Site` record.
-    3.  Accesses the linked "Tools List" (a `List` record of type "Tools Inventory").
-    4.  Adds, edits, or removes `List_Item` records associated with that list.
-* **Initial Site Setup:**
-    1.  Admin creates a new `Site` record in Noloco.
-    2.  This action (potentially via a Noloco webhook to Flask, or a manual trigger) initiates a process in the Flask backend.
-    3.  Flask backend:
-        * Generates the SOP Google Document.
-        * Creates default FLRTS lists for the site (Tools, Shopping, Master Tasks) in Noloco, linking them to the Site.
-        * Updates the `Site` record in Noloco with the SOP document link and sets the `Initial_Site_Setup_Completed_by_App` flag to TRUE.
+**Example 1: Creating a Task via Telegram (Field Technician)**
+1. **User (Field Tech):** Opens Telegram chat with the FLRTS Bot.
+2. **User Types:** "Remind me to inspect the main breaker at Site Bravo tomorrow morning at 9am"
+3. **Telegram Bot:** Sends message to Flask backend.
+4. **Flask Backend:**
+   - Receives text.
+   - Classifies intent as "create task/reminder."
+   - Sends the string "inspect the main breaker at Site Bravo tomorrow morning at 9am" to the Todoist API (Quick Add).
+   - Todoist API parses the string, creates a task with the description, due date (tomorrow's date), and due time (9:00 AM), and returns the structured task ID and details.
+   - Flask creates a new record in the Noloco `Tasks` collection, populating fields like `TaskTitle`, `DueDate`, `Site_Link` (if "Site Bravo" can be reliably identified and linked), `AssignedTo_User_Link` (to the sending user), and stores the `TodoistTaskID`.
+5. **Telegram Bot (to User):** "OK, I've created a task: 'Inspect the main breaker at Site Bravo' for tomorrow at 9:00 AM."
+
+**Example 2: Logging a Field Report via Telegram (Field Technician)**
+1. **User (Field Tech):** Opens Telegram chat with the FLRTS Bot.
+2. **User Types:** "Field report for Site Alpha. Unit 5 chiller is cycling too frequently. Ambient temp 35C. No alarms triggered but needs investigation. Took a video and uploaded it." (Assume user separately sends the video file to the bot if the bot supports file handling, or provides a link).
+3. **Telegram Bot:** Sends message (and potentially file info) to Flask backend.
+4. **Flask Backend:**
+   - Receives text (and file info).
+   - Classifies intent as "create field report."
+   - Constructs a prompt for the General Purpose LLM, including the user's text.
+   - LLM API processes the text and returns structured data (e.g., JSON identifying Site Alpha, the content of the report, mentions of "Unit 5 chiller").
+   - Flask creates a new record in the Noloco `Field_Reports` collection, populating `Site_Link`, `ReportContent_Full`, `SubmittedBy_User_Link`, and potentially linking the video file if handled.
+5. **Telegram Bot (to User):** "Field report for Site Alpha logged: 'Unit 5 chiller cycling too frequently...'"
+
+**Example 3: Adding to a Shopping List via Telegram (Field Technician)**
+1. **User (Field Tech):** Opens Telegram chat with the FLRTS Bot.
+2. **User Types:** "Add three 20A fuses and a roll of electrical tape to the Site Charlie shopping list"
+3. **Telegram Bot:** Sends message to Flask backend.
+4. **Flask Backend:**
+   - Receives text.
+   - Classifies intent as "update list / add item."
+   - Constructs a prompt for the General Purpose LLM to identify the list ("Site Charlie shopping list") and the items ("three 20A fuses," "a roll of electrical tape").
+   - LLM API returns structured data.
+   - Flask finds the correct `Lists` record for "Site Charlie shopping list" in Noloco.
+   - Flask creates new `List_Item` records ("20A fuses" with detail "quantity: 3", "electrical tape" with detail "quantity: 1 roll") and links them to the parent list in Noloco.
+5. **Telegram Bot (to User):** "OK, added '20A fuses (3)' and 'electrical tape (1 roll)' to the Site Charlie shopping list."
 
 ## 5. Backend Architecture (Flask Application)
 
@@ -126,16 +178,19 @@ The Flask Python backend will continue to play a crucial role, focusing on logic
 
 ### 5.1. Core Responsibilities
 
-* **Business Logic Orchestration:** Implementing complex business rules and workflows that span multiple steps or services.
-* **Third-Party API Integration Management:**
-    * **Todoist:** Creating tasks/reminders in Todoist based on FLRTS data in Noloco, and potentially handling webhooks from Todoist to update Noloco.
-    * **Google Drive:** Programmatically generating SOP documents, managing permissions, and storing links in Noloco.
-    * **General Purpose LLM:** Sending data for NLP processing (e.g., summarizing field reports, parsing data for future features) and updating Noloco with the results.
-* **Noloco API Interaction:** Acting as a client to Noloco's GraphQL API for programmatic CRUD operations on Noloco Tables when triggered by external events (e.g., Telegram bot command, webhook from another service) or internal scheduled jobs.
-* **Telegram Bot Handler:** Processing incoming messages/commands from the Telegram bot and sending outgoing notifications/messages via the Telegram Bot API.
-* **Automated Site Setup:** Handling the programmatic creation of SOP documents and default lists for new sites.
-* **Data Validation (Complex):** Enforcing complex data validation rules before writing to Noloco if Noloco's native validation is insufficient.
-* **Scheduled Tasks/Cron Jobs:** Running periodic tasks (e.g., data aggregation, report generation if not handled by Noloco).
+The Flask Python backend acts as the central nervous system for intelligent processing, integrations, and interactions originating from non-Noloco interfaces.
+- **Receiving and Processing Natural Language Commands:** Handling all input from the Telegram bot interface.
+- **Initial Intent Classification:** Performing a preliminary analysis of natural language input from Telegram to determine the user's intent (e.g., create a task, log a field report, update a list, query data) before routing to specialized NLP processing.
+- **NLP Orchestration & External API Integration Management:**
+  - **Todoist API:** Directly calling the Todoist API (Quick Add) for natural language parsing of tasks and reminders, and synchronizing structured task data with Noloco.
+  - **General Purpose LLM API (e.g., OpenAI):** Managing interactions for parsing more complex or varied natural language inputs like field reports and list updates into structured data.
+  - **Google Drive API:** Programmatically generating SOP documents, managing permissions, and storing links in Noloco.
+- **Noloco API Interaction:** Acting as a robust client to Noloco's GraphQL API for all programmatic CRUD (Create, Read, Update, Delete) operations on Noloco Tables based on processed data from Telegram/NLP or other internal logic.
+- **Telegram Bot Logic:** Managing the conversational flow, sending messages/confirmations, and handling user interactions within Telegram.
+- **Automated Site Setup:** Handling the programmatic creation of SOP documents and default lists in Noloco for new sites.
+- **Business Logic Orchestration:** Implementing complex business rules or workflows that are not suitable for Noloco's native automations or require interaction with multiple external services.
+- **Data Validation (Complex):** Enforcing backend data validation rules before writing to Noloco if Noloco's native validation is insufficient.
+- **Scheduled Tasks/Cron Jobs (If Needed):** Running periodic tasks.
 
 ### 5.2. Key Modules (Conceptual)
 
@@ -152,6 +207,36 @@ The Flask Python backend will continue to play a crucial role, focusing on logic
 * **Flask Backend to Noloco:** The Flask backend will use an API key to authenticate with the Noloco GraphQL API.
 * **External Services to Flask:** Webhooks received by the Flask backend (e.g., from Todoist) will be secured using signature verification (e.g., HMAC).
 * **Telegram Bot:** Standard Telegram bot token authentication.
+
+### 5.4 NLP Orchestration Pipeline
+
+A core function of the Flask backend is to process natural language commands received, typically from the Telegram bot, and translate them into structured actions and data within the Noloco SSoT. This pipeline generally follows these steps:
+1. **Input Reception:** The Flask backend receives a natural language string (e.g., from a Telegram message). Associated user information (e.g., Telegram User ID) is also received.
+2. **Initial Intent Classification:**
+   - The input string is analyzed to determine the probable user intent (e.g., `CREATE_TASK`, `CREATE_FIELD_REPORT`, `Notes`, `QUERY_TASKS`).
+   - This can be achieved using a combination of keyword matching, pattern recognition, or a lightweight classification model/LLM prompt.
+3. **Specialized NLP Processing (based on intent):**
+   - **If Intent is **`CREATE_TASK`** or **`Tasks/Reminders`**:**
+     - The relevant part of the natural language string is passed directly to the Todoist API's "Quick Add" endpoint.
+     - Todoist's NLP engine parses the string, creating a task within Todoist and identifying due dates, times, recurrence, etc.
+     - The Flask backend receives the structured task details (including the Todoist Task ID) from the Todoist API response.
+   - **If Intent is **`CREATE_FIELD_REPORT`**, **`Notes`**, **`UPDATE_LIST_ITEM`**, or other intents requiring more flexible parsing:**
+     - The Flask backend constructs a specific prompt tailored to the intent and the expected output structure.
+     - This prompt, along with the user's natural language input, is sent to a General Purpose LLM API (e.g., OpenAI).
+     - The LLM processes the input and returns structured data (typically JSON) as defined by the prompt (e.g., for a field report: `{ "site_name": "Site Alpha", "report_text": "...", "equipment_mentioned": [...] }`).
+4. **Data Validation and Structuring:**
+   - The structured data received from Todoist or the LLM is validated by the Flask backend.
+   - Data is mapped to the fields of the relevant Noloco Collection(s) (e.g., `Tasks`, `Field_Reports`, `List_Items`). This may involve looking up foreign keys (e.g., finding the `SiteID_PK_Noloco` for a given `site_name`).
+5. **Noloco Database Interaction:**
+   - The Flask backend uses its `noloco_client.py` module to interact with the Noloco GraphQL API.
+   - The structured data is used to create new records or update existing records in the appropriate Noloco Tables.
+6. **User Feedback:**
+   - A confirmation message, the results of a query, or an error message is constructed.
+   - This feedback is sent back to the user via the original input channel (e.g., Telegram bot).
+
+This pipeline ensures that natural language inputs are intelligently processed and accurately reflected in the Noloco SSoT.
+
+*(Ensure Section 5.2 Key Modules (Conceptual) reflects any new modules or responsibilities implied by this detailed pipeline, e.g., a more explicit* `intent_classifier.py` *or ensuring* `telegram_bot_handler.py` *clearly orchestrates calls to these NLP steps.)*
 
 ## 6. Third-Party Integrations
 
@@ -183,24 +268,27 @@ The Flask Python backend will continue to play a crucial role, focusing on logic
 
 ## 8. Implementation Plan / Phased Rollout (Revised)
 
-### Phase 1: Core Setup & Noloco Configuration (MVP Focus)
+### Phase 1: Core Setup, Noloco Configuration & NLP FLRTS Backbone (MVP Focus)
 
-* **Objective:** Establish Noloco as the central hub.
-* **Key Activities:**
-    1.  **Finalize Noloco Data Model:** Implement all collections and fields in Noloco Tables as per "Appendix A: Noloco Table Field Definitions." Manually configure relationships.
-    2.  **Configure Noloco UI:**
-        * Set up basic forms for creating/editing records in key collections (Sites, Personnel, Users, Field Reports, Lists, List Items, Tasks).
-        * Create list views and detail views for these collections.
-        * Implement user roles and basic permissions within Noloco.
-    3.  **Develop Flask `noloco_client.py`:** Create the core module for interacting with Noloco's GraphQL API (authentication, basic CRUD).
-    4.  **Develop Site Setup Module (Flask):**
-        * Google Drive integration for SOP document creation.
-        * Logic to create default `List` records in Noloco for a new site.
-        * Mechanism to link SOP and update `Site` record in Noloco.
-    5.  **Basic Field Report & Task Management in Noloco:** Ensure users can create, view, and update basic field reports and tasks directly within Noloco.
-* **Deliverables:**
-    * Configured Noloco instance with data model and basic UI for core FLRTS functions.
-    * Flask backend capable of Noloco API interaction and initial site setup.
+- **Objective:** Establish Noloco as the SSoT, configure its basic web UI, and implement the core natural language processing pathway via Telegram for essential FLRTS operations.
+- **Key Activities:**
+  1. **Finalize Noloco Data Model & UI Basics:** (As previously defined)
+  2. **Develop Flask **`noloco_client.py`**:** (As previously defined)
+  3. **Develop Site Setup Module (Flask):** (As previously defined)
+  4. **Develop Telegram Bot & NLP FLRTS Backbone (Flask):**
+     - Set up basic Telegram bot command handling in Flask.
+     - Implement **Initial Intent Classification** logic.
+     - Integrate with **Todoist API** for natural language task/reminder creation and sync to Noloco `Tasks`.
+     - Integrate with **General Purpose LLM API** for natural language creation of Field Reports and adding items to Lists, storing results in Noloco.
+     - Implement basic NLP-driven querying (e.g., view tasks).
+     - Ensure robust interaction with `noloco_client.py` for all data operations.
+  5. **Core FLRTS Management in Noloco Web UI:** Ensure users can also perform basic CRUD operations for all FLRTS items directly within the Noloco web interface.
+- **Deliverables:**
+  - Configured Noloco instance with data model and web UI for core FLRTS functions.
+  - Flask backend capable of:
+    - Noloco API interaction.
+    - Initial site setup.
+    - **Handling Telegram bot input, performing intent classification, NLP (via Todoist & General LLM), and full CRUD operations on Noloco Tables for tasks, field reports, and list items based on natural language commands.**
 
 ### Phase 2: Integrations & Enhanced Noloco UI
 
