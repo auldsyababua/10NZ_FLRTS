@@ -1,600 +1,249 @@
 # 10NetZero-FLRTS: System Design Document
 
-Version: 1.5 (Incorporated AI Collaboration Guide, Project Directives, and Appendix A refinements)  
-Date: May 14, 2025
+Version: 2.0 (Shift to Noloco as Primary UI and Data Store)
+Date: May 15, 2025
 
-*For all LLM/AI collaboration standards, code commenting, and development philosophy, see [AI_Collaboration_Guide.md](./AI_Collaboration_Guide.md).*
+*For all LLM/AI collaboration standards, code commenting, and development philosophy, see [AI_Collaboration_Guide.md](./AI_Collaboration_Guide.md). The field definitions previously in Appendix A of this document are now maintained in a separate "Appendix A: Noloco Table Field Definitions" document.*
+
+## 0. Document Version Control Log
+* **Version 1.0-1.4:** Initial drafts and refinements focusing on an Airtable backend and Telegram MiniApp UI.
+* **Version 1.5 (May 14, 2025):** Incorporated AI Collaboration Guide, Project Directives, and Appendix A refinements (still Airtable-focused).
+* **Version 2.0 (May 15, 2025):** Major architectural revision. Shifted primary data store from Airtable to Noloco Tables and primary User Interface from Telegram MiniApp to Noloco's web application platform. Appendix A (field definitions) moved to a separate document and updated for Noloco. This document reflects these fundamental changes.
 
 ## 1. Introduction
 
 ### 1.1. Purpose of the Document
 
-This document outlines the design specifications for the 10NetZero-FLRTS (Field Reports, Lists, Reminders, Tasks, and Subtasks) system. It details the system architecture, data model, user interaction flows, third-party integrations, and core functionalities. This document serves as a foundational guide for the development and implementation of the MVP (Minimum Viable Product) and provides a roadmap for future enhancements.
+This document outlines the design specifications for the 10NetZero-FLRTS (Field Reports, Lists, Reminders, Tasks, and Subtasks) system. It details the system architecture, data model (now implemented in Noloco Tables), user interaction flows (primarily through the Noloco platform), third-party integrations, and core functionalities. This document serves as a foundational guide for the development and implementation of the MVP (Minimum Viable Product) and provides a roadmap for future enhancements based on the Noloco platform.
 
 ### 1.2. System Overview (10NetZero-FLRTS)
 
-The 10NetZero-FLRTS system is designed to be a comprehensive platform for managing operational items such as field reports, lists, reminders, and tasks. It aims to streamline workflows for users, particularly those in field operations, by leveraging natural language processing, a robust data backend, and seamless integration with tools like Telegram and Todoist. The system will feature a Telegram bot and MiniApp as the primary user interfaces, supported by a Flask backend, Airtable databases, and AI capabilities for parsing. Integration of specialized AI for document-based knowledge work (like SiteGPT concepts) is deferred post-MVP. This system integrates and expands upon concepts from the user's "10NetZero Integrated Platform Design (TgBot + SiteGPT)" document.
-
-### 1.3. Core Goals
-
-* **Centralized Data Management:** Establish a single source of truth for core business entities and FLRTS items.
-* **Intuitive User Experience:** Prioritize natural language input and conversational interfaces for ease of use, especially on mobile devices.
-* **Efficient Workflow Automation:** Streamline the creation, assignment, and tracking of FLRTS items.
-* **Seamless Integration:** Leverage existing tools like Todoist for their strengths in task management and reminders.
-* **Scalability and Maintainability:** Design a modular architecture that can adapt to future needs and growth.
-
-## 2. System Architecture
-
-### 2.1. Key Components
-
-The 10NetZero-FLRTS system comprises the following key components:
-
-1. **Telegram Bot & MiniApp (Primary User Interface):**
-    * Built using the Telegram Bot API.
-    * MiniApp for richer UI interactions within Telegram (e.g., displaying lists, review/confirmation screens).
-    * Handles user input (natural language, button interactions) and displays system responses.
-
-2. **Flask Backend (Application Server):**
-    * Python-based web server using the Flask framework.
-    * Hosts the API endpoints for the Telegram bot/MiniApp.
-    * Orchestrates interactions between other components (LLM, Todoist, Airtable, Google Drive for SOPs).
-    * Manages business logic, user authentication (for web admin UI), and permissions.
-
-3. **General Purpose LLM (e.g., OpenAI API):**
-    * Used for parsing natural language input from users to create structured FLRTS data.
-    * Identifies item types, extracts entities (titles, descriptions, sites, assignees, dates), and prepares text for Todoist.
-
-4. **Todoist (Task Management & Reminders):**
-    * Integrated via its API.
-    * Handles detailed NLP for dates, times, and recurring patterns for tasks and reminders.
-    * Manages the lifecycle of tasks (creation, completion) and the delivery of reminders.
-    * Serves as the source of truth for due dates and completion status of tasks managed within it.
-
-5. **Airtable (Data Storage):**
-    * **10NetZero_Main_Datastore Base:** The central repository for master data (Sites, Personnel, Partners, Vendors, etc.).
-    * **10NetZero-FLRTS Base:** Stores operational data specific to the FLRTS application, including FLRTS_Items and synced master data.
-
-6. **Admin Web UI (Conceptual for MVP):**
-    * A separate web interface for administrators to manage users, permissions, system settings, and potentially view/manage FLRTS items in bulk.
-
-7. **Google Drive (SOP Document Storage):**
-    * Integrated via its API.
-    * Used to automatically create, store, and manage Standard Operating Procedure (SOP) documents for each site.
-    * Links to these documents are stored in the Sites table in Airtable.
-
-### 2.2. High-Level Data Flow for FLRTS Creation (Natural Language via Telegram)
-
-1. **User Input:** User sends a natural language command to the Telegram bot/MiniApp.
-2. **Flask Backend:** Receives the input.
-3. **General LLM Processing:** Backend sends raw text to the General LLM (e.g., OpenAI) with a structured prompt (including "bumpers" like lists of sites/personnel). LLM returns a JSON object with parsed entities and a formatted string for Todoist.
-4. **Review & Correction (MiniApp):** The parsed information is presented to the user for confirmation or conversational correction. This loop continues until the user confirms.
-5. **Todoist Integration:** If the item is a Task or Reminder, the relevant text is sent to Todoist for task creation and detailed date/time parsing. Todoist returns its task ID and confirmed due date.
-6. **Airtable Update:**
-    * If a new master entity (e.g., Site) was identified and confirmed for creation, the Flask backend first writes it to the 10NetZero_Main_Datastore via API (this includes creating the SOP Google Doc for new sites).
-    * The FLRTS item is then created in the 10NetZero-FLRTS base, linking to the Todoist Task ID (if applicable) and any master data (Sites, Personnel).
-7. **User Confirmation:** Bot/MiniApp confirms item creation to the user.
-
-## 3. Data Model (Airtable)
-
-### 3.1. 10NetZero_Main_Datastore Base
-
-This base serves as the Single Source of Truth (SSoT) for core business entities. It is designed as a single Airtable base containing multiple interlinked tables.
-
-#### 3.1.1. Sites Table (Master)
-
-* **Purpose:** Master list of all operational sites, including designated warehouse locations.
-* **Key Fields (See Appendix A for full list):**
-    * **SiteID_PK** (Primary Key)
-    * **SiteName** (Single Line Text, Required)
-    * **SiteAddress_Street** (Single Line Text)
-    * **SiteAddress_City** (Single Line Text)
-    * **SiteAddress_State** (Single Line Text)
-    * **SiteAddress_Zip** (Single Line Text)
-    * **SiteLatitude** (Number, Decimal)
-    * **SiteLongitude** (Number, Decimal)
-    * **SiteStatus** (Single Select: e.g., "Commissioning", "Running", "In Maintenance", "Contracted", "Planned", "Decommissioned")
-    * **Operator_Link** (Link to Operators table)
-    * **Site_Partner_Assignments_Link** (Link to Site_Partner_Assignments table)
-    * **Site_Vendor_Assignments_Link** (Link to Site_Vendor_Assignments table)
-    * **Licenses_Agreements_Link** (Link to Licenses & Agreements table)
-    * **Equipment_At_Site_Link** (Link to Equipment table)
-    * **ASICs_At_Site_Link** (Link to ASICs table)
-    * **SOP_Document_Link** (URL - Link to Google Doc)
-    * **IsActive** (Checkbox)
-    * **Initial_Site_Setup_Completed_by_App** (Checkbox, Default: FALSE - System field: Set to TRUE by the Flask application after successfully creating the site's default programmatic FLRTS lists and SOP Google Document. Used by safety net automations.)
-
-#### 3.1.2. Personnel Table (Master)
-
-* **Purpose:** Master list of all employees/users who might interact with or be referenced in the system.
-* **Key Fields (See Appendix A for full list):**
-    * **PersonnelID_PK** (Primary Key)
-    * **FullName** (Single Line Text, Required)
-    * **WorkEmail** (Email, Unique)
-    * **PhoneNumber** (Phone Number)
-    * **TelegramUserID** (Number, Unique - for bot interaction)
-    * **TelegramHandle** (Single Line Text, Optional)
-    * **EmployeePosition** (Single Line Text, e.g., "Field Technician", "Ops Manager")
-    * **StartDate** (Date)
-    * **EmploymentContract_Link** (Link to Licenses & Agreements table, Optional)
-    * **Assigned_Equipment_Log_Link** (Link to Employee_Equipment_Log table)
-    * **IsActive** (Checkbox, Default: TRUE)
-    * **Default_Employee_Lists_Created** (Checkbox, Default: FALSE - System field: Set to TRUE by the Flask application after successfully creating the employee's default "Onboarding" list. Used by safety net automations.)
-
-#### 3.1.3. Partners Table (Master)
-
-* **Purpose:** Master list of partner organizations or individuals, primarily those with an investment, lending, or funding relationship concerning 10NetZero projects/sites.
-* **Key Fields (See Appendix A for full list):**
-    * **PartnerID_PK** (Primary Key)
-    * **PartnerName** (Single Line Text, Required)
-    * **PartnerType** (Single Select: e.g., "Co-Investor", "Site JV Partner", "Lender")
-    * **Logo** (Attachment)
-    * **ContactPerson_FirstName** (Single Line Text)
-    * **ContactPerson_LastName** (Single Line Text)
-    * **Email** (Email)
-    * **Phone** (Phone Number)
-    * **Address_Street1** (Single Line Text)
-    * **Address_Street2** (Single Line Text)
-    * **Address_City** (Single Line Text)
-    * **Address_State** (Single Line Text)
-    * **Address_Zip** (Single Line Text)
-    * **FullAddress** (Formula)
-    * **Website** (URL)
-    * **RelevantAgreements_Link** (Link to Licenses & Agreements table)
-    * **Site_Assignments_Link** (Link to Site_Partner_Assignments table)
-    * **Notes** (Long Text)
-    * **IsActive** (Checkbox, Default: TRUE)
-
-#### 3.1.4. Site_Partner_Assignments Table (Junction Table)
-
-* **Purpose:** Links Sites and Partners to define specific partnership details for each site.
-* **Key Fields (See Appendix A for full list):**
-    * **AssignmentID_PK** (Primary Key)
-    * **LinkedSite** (Link to Sites table, Required)
-    * **LinkedPartner** (Link to Partners table, Required)
-    * **PartnershipStartDate** (Date)
-    * **OwnershipPercentage** (Percent)
-    * **PartnerResponsibilities** (Long Text, Rich Text)
-    * **10NZ_Responsibilities** (Long Text, Rich Text)
-    * **PartnershipContract_Link** (Link to Licenses & Agreements table)
-    * **Notes** (Long Text)
-
-#### 3.1.5. Vendors Table (Master)
-
-* **Purpose:** Master list of vendor organizations/individuals.
-* **Key Fields (See Appendix A for full list):**
-    * **VendorID_PK** (Primary Key)
-    * **VendorName** (Single Line Text, Required, Unique)
-    * **ServiceType** (Multiple Select: e.g., "Electrical Services," "Legal Services")
-    * **ContactPerson_FirstName** (Single Line Text)
-    * **ContactPerson_LastName** (Single Line Text)
-    * **Email** (Email)
-    * **Phone** (Phone Number)
-    * **Address_Street1** (Single Line Text)
-    * **Address_Street2** (Single Line Text)
-    * **Address_City** (Single Line Text)
-    * **Address_State** (Single Line Text)
-    * **Address_Zip** (Single Line Text)
-    * **FullAddress** (Formula)
-    * **Website** (URL)
-    * **RelevantAgreements_Link** (Link to Licenses & Agreements table)
-    * **Vendor_General_Attachments** (Attachment)
-    * **Site_Assignments_Link** (Link to Site_Vendor_Assignments table)
-    * **Notes** (Long Text)
-    * **IsActive** (Checkbox, Default: TRUE)
-
-#### 3.1.6. Site_Vendor_Assignments Table (Junction Table)
-
-* **Purpose:** Links Sites and Vendors to define specific service or supply details for each site.
-* **Key Fields (See Appendix A for full list):**
-    * **VendorAssignmentID_PK** (Primary Key)
-    * **LinkedSite** (Link to Sites table, Required)
-    * **LinkedVendor** (Link to Vendors table, Required)
-    * **ServiceDescription_SiteSpecific** (Long Text, Rich Text)
-    * **VendorContract_Link** (Link to Licenses & Agreements table)
-    * **Notes** (Long Text)
-
-#### 3.1.7. Equipment Table (Master - General Assets)
-
-* **Purpose:** Master list of general physical assets (non-ASIC). A "Warehouse" can be a designated Site record for location tracking.
-* **Key Fields (See Appendix A for full list):**
-    * **AssetTagID_PK** (Primary Key)
-    * **EquipmentName** (Single Line Text, Required)
-    * **Make** (Single Line Text)
-    * **Model** (Single Line Text)
-    * **EquipmentType** (Single Select: e.g., "Generator", "Pump", "Vehicle", "Heavy Equipment", "Power Tool", "IT Hardware - Laptop", "Safety Gear")
-    * **SerialNumber** (Single Line Text, Unique if possible)
-    * **SiteLocation_Link** (Link to Sites table - can be an operational site or a "Warehouse" site)
-    * **Specifications** (Long Text, Rich Text)
-    * **PurchaseDate** (Date)
-    * **PurchasePrice** (Currency)
-    * **PurchaseReceipt** (Attachment)
-    * **CurrentStatus** (Single Select: e.g., "Operational", "Needs Maintenance", "Out of Service", "In Storage", "Irreparable/Disposed")
-    * **WarrantyExpiryDate** (Date)
-    * **LastMaintenanceDate** (Date)
-    * **NextScheduledMaintenanceDate** (Date)
-    * **Eq_Manual** (Attachment)
-    * **EquipmentPictures** (Attachment)
-    * **Employee_Log_Link** (Link to Employee_Equipment_Log table)
-    * **Notes** (Long Text)
-
-#### 3.1.8. ASICs Table (Master - Mining Hardware)
-
-* **Purpose:** Dedicated master list for Bitcoin mining hardware. A "Warehouse" can be a designated Site record for location tracking.
-* **Key Fields (See Appendix A for full list):**
-    * **ASIC_ID_PK** (Primary Key - Autonumber, or SerialNumber if reliably unique)
-    * **SerialNumber** (Single Line Text, Required, Unique)
-    * **ASIC_Make** (Single Select - e.g., "Bitmain," "MicroBT," "Canaan")
-    * **ASIC_Model** (Single Select - e.g., "S21 XP," "M60S," "A1366")
-    * **SiteLocation_Link** (Link to Sites table - can be an operational site or a "Warehouse" site)
-    * **RackLocation_In_Site** (Single Line Text)
-    * **PurchaseDate** (Date)
-    * **PurchasePrice** (Currency)
-    * **CurrentStatus** (Single Select: "Mining", "Idle", "Needs Maintenance", "Error", "Offline", "Decommissioned")
-    * **NominalHashRate_THs** (Number, Decimal)
-    * **NominalPowerConsumption_W** (Number, Integer)
-    * **HashRate_Actual_THs** (Number, Decimal)
-    * **PowerConsumption_Actual_W** (Number, Integer)
-    * **PoolAccount_Link** (Link to Mining_Pool_Accounts table)
-    * **FirmwareVersion** (Single Line Text)
-    * **IP_Address** (Single Line Text)
-    * **MAC_Address** (Single Line Text)
-    * **LastMaintenanceDate** (Date)
-    * **WarrantyExpiryDate** (Date)
-    * **ASIC_Manual** (Attachment)
-    * **Notes** (Long Text)
-
-#### 3.1.9. Employee_Equipment_Log Table (Junction Table)
-
-* **Purpose:** Tracks equipment/tools lent to employees.
-* **Key Fields (See Appendix A for full list):**
-    * **LogID_PK** (Primary Key)
-    * **LinkedEmployee** (Link to Personnel table, Required)
-    * **LinkedEquipment** (Link to Equipment table, Required)
-    * **DateIssued** (Date, Required)
-    * **DateReturned** (Date, null if currently issued)
-    * **ConditionIssued** (Single Select: e.g., "New", "Good", "Fair")
-    * **ConditionReturned** (Single Select: e.g., "Good", "Fair", "Damaged")
-    * **IsCurrentlyAssigned** (Checkbox or Formula based on DateReturned)
-    * **Notes** (Long Text, Rich Text)
-
-#### 3.1.10. Operators Table (Master)
-
-* **Purpose:** Master list of entities operating the wells/sites.
-* **Key Fields (See Appendix A for full list):**
-    * **OperatorID_PK** (Primary Key)
-    * **OperatorName** (Text, Required)
-    * **ContactPerson** (Text)
-    * **Email** (Email)
-    * **Phone** (Phone)
-    * **Address** (Long Text)
-    * **OperatedSites_Link** (Link to Sites table)
-    * **Notes** (Long Text)
-
-#### 3.1.11. Licenses & Agreements Table (Master)
-
-* **Purpose:** Consolidated repository for contracts, permits, licenses, and other agreements.
-* **Key Fields (See Appendix A for full list):**
-    * **AgreementID_PK** (Primary Key)
-    * **AgreementName** (Text, Required)
-    * **AgreementType** (Single Select: "Gas Purchase Agreement", "Permit", "License", "Service Agreement", "Lease Agreement", "Partner Agreement", "Vendor Agreement", "NDA", "Employment Agreement", "SOW", "PO")
-    * **Status** (Single Select: "Active", "Expired", "Pending", "Terminated", "Under Review")
-    * **CounterpartyName** (Text)
-    * **Counterparty_Link_Partner** (Link to Partners table, optional)
-    * **Counterparty_Link_Vendor** (Link to Vendors table, optional)
-    * **Counterparty_Link_Operator** (Link to Operators table, optional)
-    * **Counterparty_Link_Personnel** (Link to Personnel table, optional - for employment agreements)
-    * **Site_Link** (Link to Sites table - can allow multiple)
-    * **EffectiveDate** (Date)
-    * **ExpiryDate** (Date)
-    * **RenewalReminderDate** (Date)
-    * **Document** (Attachment)
-    * **KeyTerms_Summary** (Long Text, Rich Text)
-    * **Notes** (Long Text)
-
-#### 3.1.12. Mining_Pool_Accounts Table (Master)
-
-* **Purpose:** Information about accounts with Bitcoin mining pools.
-* **Key Fields (See Appendix A for full list):**
-    * **PoolAccountID_PK** (Primary Key)
-    * **PoolName** (Text, Required)
-    * **PoolWebsite** (URL)
-    * **AccountUsername** (Text)
-    * **DefaultWorkerNameBase** (Text)
-    * **StratumURL_Primary** (Text)
-    * **StratumURL_Backup** (Text, optional)
-    * **ExpectedFeePercentage** (Percent)
-    * **CurrentTotalHashRate** (Number - Intended for periodic update via external process/API)
-    * **PayoutWalletAddress** (Text)
-    * **API_Key_ForStats** (Text - store securely)
-    * **ASICs_Using_Pool_Link** (Link to ASICs table)
-    * **Notes** (Long Text)
-
----
-
-### 3.2. 10NetZero-FLRTS Base
-
-This base holds operational data for the FLRTS application and synced data from the Main Datastore.
-
-#### 3.2.1. Synced_Sites Table
-
-* **Source:** One-way sync from Sites table in 10NetZero_Main_Datastore.
-* **Purpose:** Provides a read-only local reference to sites for linking within the FLRTS base.
-* **Fields:** Mirrors the Sites table from the Main Datastore.
-
-#### 3.2.2. Synced_Personnel Table
-
-* **Source:** One-way sync from Personnel table in 10NetZero_Main_Datastore.
-* **Purpose:** Provides a read-only local reference to personnel for linking.
-* **Fields:** Mirrors the Personnel table from the Main Datastore.
-
-#### 3.2.3. Users Table (FLRTS App Specific)
-
-* **Purpose:** Manages FLRTS application-specific user records, primarily linking authenticated Personnel (via their TelegramUserID from the Synced_Personnel table) to their activity within the FLRTS system. For the MVP, detailed role-based permissioning through specific flags in this table is largely deferred for users interacting via the Telegram Bot/MiniApp; such users operate under a unified "FLRTS Operator" model as described in Section 4.1.
-
-* **Key Fields (See Appendix A, Section A.2.3 for the complete and detailed list, including all permission flags retained for future use):**
-    * **UserID_PK** (Primary Key)
-    * **Personnel_Link** (Link to Synced_Personnel table, Required, Unique)
-    * **FLRTS_Role** (Single Select - For MVP, defaults to "FLRTS Operator" for bot users. Options like "Admin", "Manager" are for future differentiation and potential Admin Panel use.)
-    * **PasswordHash** (Text - Conceptual for potential future direct FLRTS app login, not used for Telegram bot or primary Flask Admin Panel authentication in MVP.)
-    * **IsActive** (Checkbox - To enable/disable a user's bot access.)
-    * **DateAdded** (Created Time)
-    * **LastLoginTimestamp** (Date)
-    * **Permission Flags** (Various Checkboxes): A comprehensive set of permission flags (e.g., Can_Create_MasterData_Site, Can_View_MasterData_Partners) are defined in the schema in Appendix A, Section A.2.3.
-
-* **MVP Note:** As detailed in SDD Section 4 and Appendix A.2.3, these granular flags are primarily for future enhancements and potential use by the Flask Admin Panel. They are generally not actively checked or enforced by the MVP application logic for users interacting via the Telegram Bot/MiniApp.
-
-#### 3.2.4. FLRTS_Items Table
-
-* **Purpose:** Core table for all FLRTS items.
-* **Key Fields (See Appendix A for full list):**
-    * **ItemID_PK** (Primary Key - Autonumber or UUID)
-    * **ItemType** (Single Select: "Field Report", "List", "Reminder", "Task", "Subtask")
-    * **Title** (Single Line Text, Required - content varies by ItemType, LLM sets to null for new Field Reports)
-    * **Description** (Long Text - main content for Field Reports)
-    * **Status** (Single Select: "Open", "In Progress", "Completed", "Pending", "Archived")
-    * **Priority** (Single Select: "Low", "Medium", "High")
-    * **DueDate** (Date, with time option - authoritative source is Todoist if linked)
-    * **ReminderTime** (Date, with time option - for items where Todoist reminder is not primary)
-    * **CreatedDate** (Created Time)
-    * **CreatedBy_UserLink** (Link to Users table)
-    * **LastModifiedDate** (Last Modified Time)
-    * **AssignedTo_UserLink** (Link to Users table, allow multiple)
-    * **Site_Link** (Link to Synced_Sites table)
-    * **Scope** (Single Select: "site", "general")
-    * **Visibility** (Single Select: "public", "private")
-    * **ParentItem_Link** (Link to another FLRTS_Items record - for subtasks or items in a list)
-    * **TodoistTaskID** (Text, Unique - if synced with Todoist)
-    * **RawTelegramInput** (Long Text)
-    * **ParsedLLM_JSON** (Long Text, AI-enabled in Airtable optional - stores JSON from General LLM)
-    * **Source** (Single Select: "Telegram", "MiniApp", "AdminUI", "SiteGPT Suggestion", "Todoist Sync")
-    * **IsSystemGenerated** (Checkbox, Default: FALSE) - TRUE for lists programmatically created by the system, e.g., default site lists
-    * **SystemListCategory** (Single Select, Optional) - e.g., "Site_Tools", "Site_Tasks_Master", "Site_Shopping"; null for user-created items
-    * **IsArchived** (Checkbox)
-    * **ArchivedBy_UserLink** (Link to Users table)
-    * **ArchivedAt_Timestamp** (Date, with time option)
-    * **DoneAt_Timestamp** (Date, with time option)
-
-#### 3.2.5. Field_Report_Edits Table
-
-* **Purpose:** Stores append-only edits for Field Reports, ensuring history is maintained.
-* **Key Fields (See Appendix A for full list):**
-    * **EditID_PK** (Primary Key - Autonumber)
-    * **ParentFieldReport_Link** (Link to FLRTS_Items where ItemType="Field Report", Required)
-    * **Author_UserLink** (Link to Users table, Required)
-    * **Timestamp** (Created Time)
-    * **EditText** (Long Text, Required)
-
----
-
-### 3.3. Data Synchronization Strategy
-
-This section outlines the methods and rules for keeping data consistent across the different storage components of the 10NetZero-FLRTS system, specifically between the two Airtable bases (`10NetZero_Main_Datastore` and `10NetZero-FLRTS Base`) and with the external Todoist service.
-
-#### 3.3.1. Main Datastore to FLRTS Base (Airtable Sync)
-
-* **Mechanism:** The `Synced_Sites` and `Synced_Personnel` tables in the `10NetZero-FLRTS Base` are populated via a **one-way synchronization** from their respective master tables (`Sites` and `Personnel`) in the `10NetZero_Main_Datastore` base.
-* **Technology:** This synchronization will be implemented using **Airtable's native cross-base sync feature.**
-    * The sync configuration should include all relevant fields from the source tables to ensure the `Synced_Sites` and `Synced_Personnel` tables in the `10NetZero-FLRTS Base` are complete read-only replicas.
-* **Purpose:** This provides readily available, read-access to essential master data (like site names, personnel details, and their Airtable Record IDs) within the `10NetZero-FLRTS Base`, enabling efficient linking of FLRTS items to this master data without requiring direct API calls to the `10NetZero_Main_Datastore` for every lookup.
-* **Frequency:** The Airtable sync frequency should be configured to be as near real-time as Airtable permits (typically within minutes), ensuring that data in the `10NetZero-FLRTS Base` reflects recent changes in the master datastore reasonably quickly.
-
-#### 3.3.2. FLRTS App Writing to Main Datastore (API)
-
-This strategy applies when a new master data record (e.g., a new Site or a new Personnel entry) needs to be created as a result of user input within the FLRTS application (e.g., a user creates a task for a site that doesn't exist yet).
-
-1. **Initiation:** The Flask backend application identifies the need to create a new master record.
-2. **API Call to Main Datastore:**
-    * The Flask backend will make a programmatic API call directly to the `10NetZero_Main_Datastore` Airtable base to create the new record in the appropriate master table (e.g., `Sites` or `Personnel`).
-    * **Authentication:** This API call will be authenticated using a dedicated Airtable API key for the `10NetZero_Main_Datastore`, stored securely as an environment variable (e.g., `___AIRTABLE_MAIN_DATASTORE_API_KEY___`).
-3. **Retrieve Record ID:** Upon successful creation, the Airtable API will return the unique Record ID of the newly created master record.
-4. **Link in FLRTS Base:** The Flask backend will use this returned Record ID to immediately populate the relevant linked record field in the `FLRTS_Items` table (or other tables within the `10NetZero-FLRTS Base`). This ensures immediate data integrity and correct linking for the newly created FLRTS item, even before Airtable's native sync (Section 3.3.1) updates the corresponding `Synced_Sites` or `Synced_Personnel` table.
-5. **Trigger Programmatic Post-Creation Actions:** After successfully creating the new master record via API (e.g., a new `Sites` record):
-    * The Flask application will then directly invoke the logic detailed in **SDD Section 7.1 (Programmatic Site List & SOP Document Creation)** or **SDD Section 7.2 (Programmatic Employee "Onboarding" List Creation)** as appropriate. This includes actions like creating default FLRTS lists for the new site/employee and generating the SOP Google Document for a new site.
-    * The relevant flags on the master record (e.g., `Initial_Site_Setup_Completed_by_App` on `Sites`, `Default_Employee_Lists_Created` on `Personnel`) will be set to TRUE by the Flask application upon successful completion of these programmatic actions.
-6. **Error Handling Strategy:**
-    * **Transient API Errors:** For temporary issues (e.g., network timeouts, Airtable API rate limits), implement a retry mechanism (e.g., 2-3 retries with exponential backoff) for the API call to the Main Datastore.
-    * **Persistent API Errors:** If master record creation fails after retries (e.g., due to invalid data, persistent API unavailability):
-        * The error, along with relevant contextual information (e.g., input data, user ID), must be logged vigorously (as per SDD Section 0.5).
-        * An alert notification should be sent to a designated system administrator (e.g., via Telegram to `@colinaulds` or a dedicated admin channel).
-        * **FLRTS Item Handling:**
-            * **Option A (Safer):** The FLRTS item creation process that depended on this master record should be halted, and the user should be informed of the failure to create the master record. No partial FLRTS item should be created.
-            * **Option B (If partial creation is permissible):** If an FLRTS item can exist meaningfully without the master record link, it could be created with a status indicating "Pending Master Record Creation," and the system (or admin) would need a mechanism to reconcile this later. *For MVP, Option A is recommended for simplicity unless a strong use case for Option B exists.*
-    * **Failure in Post-Creation Actions (SOP/Default Lists):** If the master record is created successfully but subsequent programmatic actions (like SOP or default list creation) fail, this failure should also be logged and an admin notified. The master record will exist, but the associated setup flag (e.g., `Initial_Site_Setup_Completed_by_App`) will remain FALSE, triggering the safety net automations described in SDD Sections 7.1 and 7.2.
-
-#### 3.3.3. Todoist and Airtable Synchronization
-
-This section details how FLRTS items designated as "Task" or "Reminder" are synchronized with Todoist.
-
-* **Source of Truth Principle:**
-    * **Airtable (`FLRTS_Items` table):** Serves as the primary System of Record (SoR) for the complete FLRTS item, including its 10NetZero-specific metadata (e.g., `Site_Link`, `Scope`, `RawTelegramInput`, `ParsedLLM_JSON`, `Source`).
-    * **Todoist:** Serves as the SoR for task-specific attributes it excels at managing, such as precise due dates (including recurring patterns), completion status, and the delivery of reminders.
-* **Initial Creation (FLRTS App to Todoist):**
-    1. When an FLRTS item (Task or Reminder) is created in the FLRTS application, the Flask backend sends the relevant details (e.g., task title, description derived from `FLRTS_Items.Title` and `FLRTS_Items.Description`) to the Todoist API to create a new task.
-    2. Todoist processes the input (including its NLP for dates/times) and returns its unique `TodoistTaskID` and the parsed/confirmed `DueDate`.
-    3. The Flask backend stores this `TodoistTaskID` and the Todoist-confirmed `DueDate` in the corresponding `FLRTS_Items` record in Airtable.
-* **Updates (Todoist to Airtable via Webhooks):**
-    * **Mechanism:** The primary method for updating Airtable based on changes in Todoist is via **Todoist Webhooks.**
-        * A webhook endpoint in the Flask backend will be registered with Todoist for relevant events (e.g., `task:completed`, `task:updated` particularly for due date changes, `task:deleted`).
-        * Detailed implementation specifics for this webhook handler, including request signature validation (`X-Todoist-Hmac-SHA256`) and idempotency (`X-Todoist-Delivery-ID`), are covered in the **10NetZero-FLRTS LLM Implementation Guide (Section 2)** and referenced in **SDD Section 6.1 (Webhook Setup for Updates from Todoist)**.
-    * **Processing:** When the Flask backend receives a valid webhook notification:
-        1. It identifies the corresponding `FLRTS_Items` record in Airtable using the `TodoistTaskID` from the webhook payload.
-        2. It updates the necessary fields in the Airtable record. **Specific fields to be updated include:**
-            * `Status`: (e.g., to "Completed" if `event_name` is `item:completed`).
-            * `DueDate`: If the due date is changed in Todoist.
-            * `DoneAt_Timestamp`: When a task is completed.
-            * `IsArchived` / `ArchivedAt_Timestamp`: If a task is deleted or archived in Todoist, the corresponding FLRTS item might be marked as archived.
-    * **Polling (MVP Alternative/Fallback):** If Todoist webhooks prove unreliable or overly complex to implement robustly for MVP, a polling mechanism can be used as an alternative. The Flask backend would periodically query the Todoist API for recently updated tasks associated with the application and then update Airtable accordingly. This is less efficient and not real-time, so webhooks are preferred.
-    * **Error Handling for Webhook Processing:**
-        * If the `TodoistTaskID` from a webhook payload is not found in the `FLRTS_Items` table, the event should be logged, and an admin potentially notified, as this indicates a desynchronization.
-        * If the Flask backend encounters an error communicating with Airtable while trying to update an `FLRTS_Items` record (e.g., Airtable API down), the error should be logged. For critical updates, a retry mechanism or a "dead letter queue" for failed webhook events could be considered for post-MVP. For MVP, robust logging and admin notification are key.
-* **Updates (Airtable to Todoist - Minimized for MVP):**
-    * For MVP, direct modifications to task-related fields (like `DueDate` or `Status`) within Airtable are **not expected to automatically sync back to Todoist.**
-    * Changes to core task properties should ideally be initiated through application interfaces (e.g., Telegram bot commands) that would instruct the Flask backend to first update the task in Todoist via its API. The changes would then flow back to Airtable via the Todoist webhook, maintaining Todoist as the SoR for those fields.
-    * If direct Airtable edits for such fields are allowed, users must be made aware that these changes will not be reflected in Todoist for the MVP.
-
-## 4. User Roles, Permissions, and Access Control (MVP Simplification)
-
-For the Minimum Viable Product (MVP), the roles and permissions structure within the 10NetZero-FLRTS application is simplified to expedite development and leverage the trusted nature of the initial user base. The primary goal is to provide core FLRTS functionality through the Telegram Bot/MiniApp interface while ensuring that system-critical administrative functions and master data management are handled through separate, more controlled channels.
-
-### 4.1. FLRTS Operator Role (Telegram Bot/MiniApp Users)
-
-* **Description:** For MVP, all users interacting with the system via the Telegram Bot or MiniApp will operate under a single, unified role designated as "FLRTS Operator."
-* **Access & Authentication:** Users are authenticated by linking their `TelegramUserID` (from the `Personnel` table) to a record in the `Users` table within the `10NetZero-FLRTS Base`.
-* **Capabilities via Telegram Bot/MiniApp:**
-    * **FLRTS Item Management:**
-        * Can create, view, edit, assign, and manage their own Tasks, Reminders, Field Reports, and Lists.
-        * Can add items to system-generated or publicly accessible lists (e.g., Site Shopping Lists).
-    * **FLRTS Item Visibility (MVP Simplification):**
-        * Can view all FLRTS items within the system, including Tasks, Reminders, Field Reports, and Lists created by or assigned to other users. For MVP, specific privacy or restricted views for Tasks/Reminders are deferred, relying on the trusted nature of the team.
-    * **Master Data Interaction:**
-        * Can view records from synced master data tables as needed for context within the FLRTS application (e.g., selecting a Site or Personnel when creating/assigning an FLRTS item).
-        * Cannot directly create, edit, or delete records in any master data tables (e.g., `Sites`, `Personnel`, `Partners`, `Vendors`, etc.) through the Telegram Bot/MiniApp interface.
-* **Limitations:**
-    * FLRTS Operators cannot perform system-wide configurations, manage other user accounts, or execute any administrative functions described in Section 4.2 through the Telegram Bot/MiniApp.
-
-### 4.2. Administrative Functions & Access
-
-* **Description:** System-critical administrative functions, master data management (including creation of new Sites and Personnel which trigger programmatic backend processes), and operations that could pose a risk to data integrity or system stability are handled exclusively outside the standard FLRTS Operator interface (Telegram Bot/MiniApp).
-* **Access Mechanisms:**
-    1.  **Direct Airtable Access:** Authorized team members with appropriate Airtable base permissions (e.g., Creator, Editor) can directly manage data within the `10NetZero_Main_Datastore` and `10NetZero-FLRTS Base`. This includes creating and editing master data records.
-    2.  **Flask Admin Panel:** A dedicated web-based Admin Panel, built as part of the Flask backend, will provide a controlled interface for specific administrative tasks.
-        * **Authentication:** Access to the Flask Admin Panel will be secured by a distinct admin authentication mechanism (e.g., a specific username and password defined via environment variables: `___FLASK_ADMIN_USER___` and `___FLASK_ADMIN_PASS___`).
-        * **Key Functions (Conceptual for MVP):**
-            * Creating new `Sites` (which will trigger SOP document generation and default list creation as per SDD Section 8.1).
-            * Creating new `Personnel` records (which will trigger default "Onboarding" list creation as per SDD Section 8.2).
-            * Viewing system logs (potentially).
-            * Managing system configurations (if any are exposed via UI beyond environment variables).
-            * Overseeing FLRTS items if a broader administrative view is needed beyond what the bot provides.
-* **Data Integrity Note:** When master data (like new Sites or Personnel) is created via the Flask Admin Panel or direct Airtable manipulation, the system's programmatic post-creation actions (SOPs, default lists, flag setting) as detailed in SDD Sections 8.1 and 8.2 must be reliably triggered and completed. If creation occurs via direct Airtable entry, these processes will rely on Airtable Automations (as safety nets) or require manual initiation if direct Flask app interaction is bypassed. The Flask Admin Panel is the preferred route for programmatic creation to ensure all system steps are executed.
-
-## 5. User Interface (UI) and User Experience (UX) Design
-
-## 6. Todoist Integration Details
-### 6.1. Todoist Webhook Configuration
-* **Purpose:** To enable real-time synchronization between Todoist and the FLRTS system.
-* **Implementation:**
-  * Configure Todoist to send webhooks to the Flask backend whenever a task status changes or a new task is created.
-  * The Flask backend will then update the corresponding FLRTS_Items record in Airtable.
-
-## 7. Other Key Functionalities / Features (MVP)
-
-### 7.1. Programmatic Site List & SOP Document Creation
-
-* **Trigger:** Automatically initiated by the Flask backend immediately after a new Site record is successfully created in the 10NetZero_Main_Datastore (typically by a Manager or Admin via the Admin Web UI or an authorized application interface).
-* The Flask application will:
-    1. Create the default FLRTS lists for the site (Tools, Master Task, Shopping).
-    2. Connect to Google Drive, create a new SOP Google Document (e.g., from a template, titled "[SiteName] - SOP"), and retrieve its shareable link.
-    3. Store this link in the SOP_Document_Link field of the new Site record.
-* Upon successful creation of the site's lists and SOP document, the Flask application will set the Initial_Site_Setup_Completed_by_App flag (Checkbox field) on the Sites record to TRUE.
-* **Default Lists Created (per new Site):** The following FLRTS_Items of ItemType="List" will be created:
-    1. **Site Tools List:**
-        * Title: "[SiteName] - Tools List"
-        * Description: "List of tools and general equipment available or needed at [SiteName]."
-        * SystemListCategory: "Site_Tools_List"
-        * Scope: "site" (linked to the new Site)
-        * Visibility: "public" (globally readable by all roles)
-        * IsSystemGenerated: TRUE
-        * CreatedBy_UserLink: "System" user.
-        * AssignedTo_UserLink: Null/Empty.
-        * Pre-populated items: None by default for MVP.
-    2. **Site Master Task List:**
-        * Title: "[SiteName] - Master Task List"
-        * Description: "Master list of standard operational tasks and checklists for [SiteName]."
-        * SystemListCategory: "Site_Master_Task_List"
-        * Scope: "site"
-        * Visibility: "public"
-        * IsSystemGenerated: TRUE
-        * CreatedBy_UserLink: "System" user.
-        * AssignedTo_UserLink: Null/Empty.
-        * Pre-populated items: None by default for MVP (can be added later as standard tasks).
-    3. **Site Shopping List:**
-        * Title: "[SiteName] - Shopping List"
-        * Description: "List of items to be purchased for [SiteName]."
-        * SystemListCategory: "Site_Shopping_List"
-        * Scope: "site"
-        * Visibility: "public"
-        * IsSystemGenerated: TRUE
-        * CreatedBy_UserLink: "System" user.
-        * AssignedTo_UserLink: Null/Empty.
-        * Pre-populated items: None by default for MVP.
-* **Safety Net:** An Airtable Automation will trigger upon the creation of any new Sites record.
-    * It will check the value of the Initial_Site_Setup_Completed_by_App flag after a short delay (e.g., 1-2 minutes to allow the Flask app to complete its work).
-    * If this flag is FALSE (or not set) after the delay, the automation will immediately delete the newly created Sites record and send a Telegram notification to a designated admin (e.g., @colinaulds), informing them of the deletion and advising them to recreate the site via the application, as the automated setup likely failed.
-
-### 7.2. Programmatic Employee "Onboarding" List Creation
-
-* **Trigger:** Automatically initiated by the Flask backend immediately after a new Personnel record is successfully created in the 10NetZero_Main_Datastore (typically by a Manager or Admin via the Admin Web UI or an authorized application interface).
-* Upon successful creation of the employee and their "Onboarding" list, the Flask application will set the Default_Employee_Lists_Created flag (Checkbox field) on the Personnel record to TRUE.
-* **Default List Created (per new Employee):** One FLRTS_Item of ItemType="List":
-    * **Employee Onboarding List:**
-        * Title: "[Employee_FullName]'s Onboarding Tasks" (e.g., "John Doe's Onboarding Tasks")
-        * Description: "Standard onboarding tasks for new personnel."
-        * SystemListCategory: "Employee_Onboarding"
-        * Scope: "general"
-        * Visibility: "public" (globally readable by all roles)
-        * IsSystemGenerated: TRUE
-        * CreatedBy_UserLink: "System" user.
-        * AssignedTo_UserLink: The new employee.
-        * Pre-populated items: One default task: Title="Report for duty", Description="Initial check-in and reporting task.", assigned to the new employee, linked to this parent "Onboarding" list. Other standard onboarding tasks can be added to this template over time.
-* **Safety Net:** An Airtable Automation will trigger upon the creation of any new Personnel record.
-    * It will check the value of the Default_Employee_Lists_Created flag after a short delay.
-    * If this flag is FALSE (or not set) after the delay, the automation will immediately delete the newly created Personnel record and send a Telegram notification to a designated admin (e.g., @colinaulds), informing them of the deletion and advising them to recreate the employee via the application.
-
-## 8. Development Phases
-
-### 8.1. MVP Development
-
-* **Duration:** 3 months
-* **Key Milestones:**
-    * Complete system design and architecture
-    * Implement core functionalities and MVP features
-    * Conduct initial user testing
+The 10NetZero-FLRTS system is designed to be a comprehensive platform for managing operational items such as field reports, lists, reminders, and tasks. It aims to streamline workflows for users, particularly those in field operations, by leveraging a robust data backend provided by **Noloco Tables** and a user-friendly interface built on the **Noloco web application platform**. A Flask backend will support advanced business logic, integrations not natively handled by Noloco, and potential secondary interfaces like a Telegram bot for notifications or specific quick actions. Integrations with a General Purpose LLM (for NLP), Todoist (for task/reminder management), and Google Drive (for SOP documents) will be maintained and accessed via Noloco or the Flask backend as appropriate.
+
+## 2. Goals and Objectives
+
+### 2.1. Primary Goals
+
+* **Centralized Data Management:** Provide a single source of truth for all FLRTS data using Noloco Tables.
+* **Intuitive User Interface:** Offer a user-friendly web interface via the Noloco platform for creating, viewing, updating, and managing all FLRTS items.
+* **Streamlined Workflows:** Simplify and automate operational processes related to field reporting, task management, and list maintenance.
+* **Effective Communication:** Ensure timely notifications and easy access to relevant information for all users.
+* **Scalability & Maintainability:** Build a system that can grow with 10NetZero's needs and is relatively easy to maintain, leveraging Noloco's platform capabilities.
+
+### 2.2. MVP Scope
+
+* **Core FLRTS Modules:**
+    * Field Reports: Creation, submission, viewing, and basic status tracking within Noloco.
+    * Lists (Tools, Shopping, Master Task Lists): Creation, item management, and viewing within Noloco. Site-specific lists auto-generated upon site creation.
+    * Tasks & Subtasks: Creation, assignment (to users defined in Noloco), status updates, and viewing within Noloco. Potential integration with Todoist.
+    * Reminders: Creation and viewing within Noloco. Potential integration with Todoist.
+* **User Management:** Utilize Noloco's built-in user management, potentially augmented by the `Personnel` and `Users` collections for application-specific roles and Telegram IDs (if Telegram bot functionality is retained for notifications/specific actions).
+* **Basic Reporting/Views:** Leverage Noloco's capabilities to provide views and filters for FLRTS data.
+* **SOP Document Generation & Linking:** Flask application to programmatically generate a master SOP Google Document for each new site and link it within the site's record in Noloco.
+* **Flask Backend:** To handle SOP generation, initial site setup logic, and any necessary integrations or complex business rules not achievable directly within Noloco.
+* **Telegram Bot (Reduced Scope):** Primarily for notifications triggered by events in Noloco (via Flask backend or Noloco webhooks if available) or for very specific, quick interactions if deemed necessary. The Telegram MiniApp as a full UI is deprioritized for the MVP in favor of the Noloco web interface.
+
+## 3. Data Model and Management
+
+### 3.1. Data Storage (Noloco Tables)
+
+The primary data store for the 10NetZero-FLRTS system will be **Noloco Tables**. Noloco's internal database will house all collections (formerly referred to as tables in an Airtable context) and manage the relationships between them.
+
+* **Collections:** Data will be organized into logical collections within Noloco, such as `Sites`, `Personnel`, `Field_Reports`, `Lists`, `List_Items`, `Tasks`, etc.
+* **Fields:** Each collection will have defined fields with specific Noloco data types (e.g., Text, Number, Date, Relationship, Boolean, File, URL, Single/Multiple Option Select).
+* **Relationships:** Noloco's relationship field types will be used to link records between collections (e.g., linking a `Field_Report` to a `Site` and a `User`). Junction collections will be used for many-to-many relationships where necessary (e.g., `Site_Partner_Assignments`).
+* **Data Integrity & Validation:** Noloco's built-in field validation capabilities will be utilized where possible. Additional complex validation rules may be enforced by the Flask backend before writing data to Noloco via its API, or through Noloco Workflows.
+* **Views and Access Control:** Noloco's interface will be configured to provide appropriate views, filters, and access permissions for different user roles.
+
+**For detailed field definitions, data types, and relationships for all Noloco Collections, refer to the separate document: "Appendix A: Noloco Table Field Definitions".**
+
+### 3.2. Data Flow
+
+1.  **User Input (Noloco Interface):** Users primarily interact with the system via forms, lists, and views configured in the Noloco web application. Data is created or updated directly in Noloco Tables.
+2.  **User Input (Telegram Bot - Secondary):** For any retained Telegram functionality (e.g., quick report snippet, task update), the Telegram bot communicates with the Flask backend.
+3.  **Flask Backend Processing:**
+    * Receives data from the Telegram bot (if applicable).
+    * Performs business logic, validation, and data transformation.
+    * Interacts with Noloco Tables via the Noloco API (GraphQL) to create, read, update, or delete records.
+    * Handles integrations with other services (Todoist, Google Drive, LLM) based on triggers or data from Noloco.
+    * Generates SOP documents and links them in Noloco.
+    * Can be triggered by Noloco webhooks (if configured) for reactive processing.
+4.  **Noloco Workflows/Automations:** Noloco's native automation capabilities may be used for simpler in-app logic, notifications, or data updates that don't require the Flask backend.
+5.  **Data Display (Noloco Interface):** Users view and manage data through the configured Noloco interface.
+6.  **Notifications:**
+    * Noloco may provide its own in-app or email notifications.
+    * The Flask backend can send notifications via Telegram or other channels based on system events or data changes in Noloco.
+
+## 4. User Interface (UI) and User Experience (UX)
+
+### 4.1. Primary User Interface (Noloco Web Application)
+
+The primary interface for the 10NetZero-FLRTS system will be a web application built on the Noloco platform.
+
+* **Accessibility:** Accessible via web browsers on desktop and mobile devices.
+* **Key Features:**
+    * **Custom Views:** List views, detail views, Kanban boards, calendars, and dashboards configured within Noloco to display FLRTS data.
+    * **Forms:** User-friendly forms for creating and editing records in all relevant collections (Sites, Field Reports, Tasks, etc.).
+    * **Action Buttons:** Noloco action buttons for triggering specific operations (e.g., "Complete Task," "Submit Report," "Add Item to List").
+    * **User Authentication & Roles:** Managed by Noloco's built-in user authentication and permission system. Different user roles will have access to different data and functionalities.
+    * **Search and Filtering:** Utilize Noloco's built-in search and filtering capabilities.
+
+### 4.2. Secondary User Interface (Telegram Bot - Reduced Scope)
+
+The Telegram bot's role will be significantly reduced compared to the initial concept. It will primarily serve as:
+
+* **Notification Channel:** Receiving alerts and updates triggered by events within the FLRTS system (e.g., new task assignment, reminder due, report submitted/actioned). These notifications will likely be orchestrated by the Flask backend based on data from Noloco.
+* **Quick Input/Actions (Optional, Post-MVP or if high-value):** Potentially allow for very simple, structured inputs like submitting a quick voice note for a field report snippet, or responding to a yes/no prompt. This will depend on the ease of integration and clear user benefit compared to using the Noloco web app.
+* **No MiniApp for MVP:** The development of a full Telegram MiniApp UI is deprioritized for the MVP.
+
+### 4.3. User Interaction Flows
+
+User interaction flows will be redesigned to center around the Noloco web interface. Examples:
+
+* **Creating a Field Report:**
+    1.  User logs into the Noloco web application.
+    2.  Navigates to the "Field Reports" section.
+    3.  Clicks "Add New Field Report."
+    4.  Fills out the form (Site, Report Type, Content, attaches files) provided by Noloco.
+    5.  Clicks "Submit." The record is saved in the `Field_Reports` Noloco Collection.
+    6.  Relevant personnel may be notified (via Noloco notification or Telegram via Flask).
+* **Managing a Site's Tool List:**
+    1.  Site Manager logs into Noloco.
+    2.  Navigates to the specific `Site` record.
+    3.  Accesses the linked "Tools List" (a `List` record of type "Tools Inventory").
+    4.  Adds, edits, or removes `List_Item` records associated with that list.
+* **Initial Site Setup:**
+    1.  Admin creates a new `Site` record in Noloco.
+    2.  This action (potentially via a Noloco webhook to Flask, or a manual trigger) initiates a process in the Flask backend.
+    3.  Flask backend:
+        * Generates the SOP Google Document.
+        * Creates default FLRTS lists for the site (Tools, Shopping, Master Tasks) in Noloco, linking them to the Site.
+        * Updates the `Site` record in Noloco with the SOP document link and sets the `Initial_Site_Setup_Completed_by_App` flag to TRUE.
+
+## 5. Backend Architecture (Flask Application)
+
+The Flask Python backend will continue to play a crucial role, focusing on logic and integrations that are complex or external to Noloco's native capabilities.
+
+### 5.1. Core Responsibilities
+
+* **Business Logic Orchestration:** Implementing complex business rules and workflows that span multiple steps or services.
+* **Third-Party API Integration Management:**
+    * **Todoist:** Creating tasks/reminders in Todoist based on FLRTS data in Noloco, and potentially handling webhooks from Todoist to update Noloco.
+    * **Google Drive:** Programmatically generating SOP documents, managing permissions, and storing links in Noloco.
+    * **General Purpose LLM:** Sending data for NLP processing (e.g., summarizing field reports, parsing data for future features) and updating Noloco with the results.
+* **Noloco API Interaction:** Acting as a client to Noloco's GraphQL API for programmatic CRUD operations on Noloco Tables when triggered by external events (e.g., Telegram bot command, webhook from another service) or internal scheduled jobs.
+* **Telegram Bot Handler:** Processing incoming messages/commands from the Telegram bot and sending outgoing notifications/messages via the Telegram Bot API.
+* **Automated Site Setup:** Handling the programmatic creation of SOP documents and default lists for new sites.
+* **Data Validation (Complex):** Enforcing complex data validation rules before writing to Noloco if Noloco's native validation is insufficient.
+* **Scheduled Tasks/Cron Jobs:** Running periodic tasks (e.g., data aggregation, report generation if not handled by Noloco).
+
+### 5.2. Key Modules (Conceptual)
+
+* **`noloco_client.py`:** A module dedicated to all interactions with the Noloco GraphQL API. This will include functions for authentication, querying collections, creating records, updating records, and deleting records. It will abstract the complexities of GraphQL for other parts of the backend.
+* **`telegram_bot_handler.py`:** Manages interactions with the Telegram Bot API (receiving messages, sending replies/notifications).
+* **`todoist_integration.py`:** Handles communication with the Todoist API.
+* **`google_drive_integration.py`:** Manages SOP document creation and linking.
+* **`llm_service.py`:** Interfaces with the chosen General Purpose LLM.
+* **`site_setup_module.py`:** Orchestrates the initial setup for new sites.
+* **API Endpoints / Webhooks:** Flask routes for receiving webhooks from external services (e.g., Todoist, Noloco if it can send webhooks) or serving internal needs.
+
+### 5.3. Authentication and Authorization
+
+* **Flask Backend to Noloco:** The Flask backend will use an API key to authenticate with the Noloco GraphQL API.
+* **External Services to Flask:** Webhooks received by the Flask backend (e.g., from Todoist) will be secured using signature verification (e.g., HMAC).
+* **Telegram Bot:** Standard Telegram bot token authentication.
+
+## 6. Third-Party Integrations
+
+* **Noloco:** (Now the core platform)
+    * **Purpose:** Primary data store (Noloco Tables) and primary user interface platform.
+    * **Integration:** Flask backend interacts via Noloco's GraphQL API. Noloco may trigger Flask via webhooks. Users interact directly via Noloco's web UI.
+* **Telegram:**
+    * **Purpose:** Secondary notification channel and potentially for very specific, simple inputs.
+    * **Integration:** Flask backend uses Telegram Bot API.
+* **Todoist:**
+    * **Purpose:** Task and reminder synchronization/management.
+    * **Integration:** Flask backend uses Todoist API. May receive webhooks from Todoist. Tasks in Noloco can be pushed to Todoist.
+* **Google Drive:**
+    * **Purpose:** Storing and managing SOP master documents.
+    * **Integration:** Flask backend uses Google Drive API to create documents and manage links. Links stored in Noloco.
+* **General Purpose LLM (e.g., OpenAI API):**
+    * **Purpose:** NLP tasks like summarization, data extraction (for future features), and potentially natural language interaction.
+    * **Integration:** Flask backend interacts with the LLM's API.
+
+## 7. Security Considerations
+
+* **Noloco Platform Security:** Rely on Noloco's built-in security features for user authentication, authorization, data encryption at rest and in transit. Configure user roles and permissions within Noloco carefully.
+* **API Keys and Secrets:** All API keys (Noloco, Telegram, Todoist, Google, LLM) will be stored securely as environment variables and not hardcoded. Use a `.env` file for local development and secure environment variable management in production.
+* **Flask Backend Security:**
+    * Secure webhooks with signature verification.
+    * Input validation for all data received from external sources.
+    * Standard web application security practices (e.g., protection against common vulnerabilities if exposing any public endpoints).
+* **Data Privacy:** Ensure compliance with relevant data privacy regulations. Sensitive data should be handled with care.
+
+## 8. Implementation Plan / Phased Rollout (Revised)
+
+### Phase 1: Core Setup & Noloco Configuration (MVP Focus)
+
+* **Objective:** Establish Noloco as the central hub.
+* **Key Activities:**
+    1.  **Finalize Noloco Data Model:** Implement all collections and fields in Noloco Tables as per "Appendix A: Noloco Table Field Definitions." Manually configure relationships.
+    2.  **Configure Noloco UI:**
+        * Set up basic forms for creating/editing records in key collections (Sites, Personnel, Users, Field Reports, Lists, List Items, Tasks).
+        * Create list views and detail views for these collections.
+        * Implement user roles and basic permissions within Noloco.
+    3.  **Develop Flask `noloco_client.py`:** Create the core module for interacting with Noloco's GraphQL API (authentication, basic CRUD).
+    4.  **Develop Site Setup Module (Flask):**
+        * Google Drive integration for SOP document creation.
+        * Logic to create default `List` records in Noloco for a new site.
+        * Mechanism to link SOP and update `Site` record in Noloco.
+    5.  **Basic Field Report & Task Management in Noloco:** Ensure users can create, view, and update basic field reports and tasks directly within Noloco.
 * **Deliverables:**
-    * MVP system
-    * User manual
-    * Initial testing report
+    * Configured Noloco instance with data model and basic UI for core FLRTS functions.
+    * Flask backend capable of Noloco API interaction and initial site setup.
 
-### 8.2. Post-MVP Development
+### Phase 2: Integrations & Enhanced Noloco UI
 
-* **Duration:** 6 months
-* **Key Milestones:**
-    * Complete integration of SiteGPT
-    * Implement additional features and functionalities
-    * Conduct extensive user testing
+* **Objective:** Integrate key third-party services and refine the Noloco user experience.
+* **Key Activities:**
+    1.  **Todoist Integration (Flask & Noloco):**
+        * Develop Flask modules for Todoist API interaction.
+        * Allow tasks created in Noloco to be pushed to Todoist.
+        * (Optional) Handle Todoist webhooks to update task status in Noloco.
+    2.  **Telegram Notifications (Flask):**
+        * Develop Flask module for sending notifications via Telegram based on events/data from Noloco (e.g., new task, report submitted).
+    3.  **Refine Noloco UI:**
+        * Create more advanced views, dashboards, and action buttons in Noloco.
+        * Implement more granular permissions.
+        * Explore Noloco workflows for in-app automations.
+    4.  **LLM Integration (Basic - Flask):** Initial setup for future NLP features, e.g., a simple text processing task.
 * **Deliverables:**
-    * Full system
-    * User manual
-    * Final testing report
+    * Noloco app with richer UI/UX and integrated Todoist/Telegram notification features.
+
+### Phase 3: Testing, Deployment, and Iteration
+
+* **Objective:** Thoroughly test the system, deploy for production use, and gather feedback for further improvements.
+* **Key Activities:**
+    * System testing (Flask backend, Noloco configurations, integrations).
+    * User Acceptance Testing (UAT) with target users on the Noloco platform.
+    * Deployment of the Flask backend to a production environment.
+    * Final configuration of Noloco for production.
+    * Develop user guides/training materials for the Noloco application.
+    * Monitor system performance and gather user feedback.
+* **Deliverables:**
+    * Fully tested and deployed FLRTS system on Noloco.
+    * User documentation.
+    * Plan for ongoing support and future iterations.
 
 ## 9. Future Features
 
-* **Enhanced NLP & AI Capabilities:**
-* **LLM Interaction with SOP Google Docs:** Enable users to query the content of SOP Google Docs using natural language (e.g., "What is the procedure for X at [SiteName]?"). Allow users to request updates or additions to SOP Google Docs via natural language commands, which an LLM would then translate into edits on the actual document (potentially with a confirmation step). This would require deeper Google Drive API integration, including parsing and modifying Google Doc content.
-* **Contracts table row fill via OpenAI:** For the "Licenses & Agreements" table, implement functionality to upload an agreement document (e.g., PDF) and use an LLM (like OpenAI API) to parse its content and automatically suggest or pre-fill as many of the table fields as possible (e.g., AgreementName, CounterpartyName, EffectiveDate, ExpiryDate, KeyTerms_Summary). This would be a valuable addition to SDD Section 9: Future Features.
+* **Enhanced NLP & AI Capabilities (via Flask & LLM):**
+    * **LLM Interaction with SOP Google Docs:** Enable users (perhaps via a dedicated Noloco interface section that calls the Flask backend) to query SOP content or request updates.
+    * **Automated Field Report Summarization/Analysis:** Use LLM to process `Field_Report` content in Noloco.
+    * **"Licenses & Agreements" Parsing:** Upload agreement PDFs to Noloco, trigger Flask backend to use LLM for parsing and pre-filling fields in the corresponding Noloco record.
+* **Advanced Noloco Dashboards & Reporting:** Utilize Noloco's full charting and reporting capabilities.
+* **Offline Capabilities (if Noloco or PWA supports):** Explore options for offline data access or entry if critical for field users.
+* **Expanded Telegram Bot Functionality:** Based on MVP feedback, selectively add more quick actions or data retrieval commands to the Telegram bot if there's a strong use case not well covered by the Noloco mobile web experience.
+* **Direct Noloco Webhooks:** If Noloco enhances its webhook capabilities, utilize them to trigger Flask backend processes more directly, potentially reducing polling or complex state management.
 
-**(Appendix A section within this document would just be a placeholder, as the detailed Appendix A is being built as a separate artifact sdd_appendix_a)**
-**Appendix A: Airtable Field Definitions**
-
-*(Refer to the live document artifact with id="sdd_appendix_a" for the complete and detailed field definitions for all Airtable tables.)*
-
-### 9.x LLM Integration & Prompting (Future Feature)
+**(Appendix A is now a separate document: "Appendix A: Noloco Table Field Definitions")**
