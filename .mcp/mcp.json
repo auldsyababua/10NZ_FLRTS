@@ -1,0 +1,48 @@
+{
+  "name": "flrts-project-mcp",
+  "version": "0.1.0",
+  "description": "Project-specific MCP for 10NetZero FLRTS App with additional static MCPs",
+  "contexts": [
+    {
+      "name": "Python MCP",
+      "type": "mcp",
+      "url": "https://www.modelcontextprotocol.com/mcp/python"
+    },
+    {
+      "name": "OpenAI MCP",
+      "type": "mcp",
+      "url": "https://www.modelcontextprotocol.com/mcp/openai"
+    },
+    {
+      "name": "Telegram Bot MCP",
+      "type": "mcp",
+      "url": "https://www.modelcontextprotocol.com/mcp/telegram-bot"
+    }
+  ],
+  "mcpServers": { 
+    "todoist": { 
+      "command": "npx", 
+      "args": [ 
+        "-y", 
+        "@abhiz123/todoist-mcp-server"
+      ], 
+      "env": { 
+        "TODOIST_API_TOKEN": "YOUR_TODOIST_TOKEN" 
+      } 
+    },
+    "postgres": { 
+      "command": "npx", 
+      "args": [ 
+        "-y", 
+        "postgres-mcp"
+      ] 
+    }, 
+    "google-drive": { 
+      "command": "npx", 
+      "args": [ 
+        "-y", 
+        "@anthropic-mcp/google-drive"
+      ] 
+    } 
+  } 
+}

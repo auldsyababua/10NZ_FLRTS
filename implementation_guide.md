@@ -1,192 +1,182 @@
 # 10NetZero-FLRTS: LLM Implementation Guide
-**Version:** 0.1**Date:** May 9, 2025
-**Purpose:** This document serves as a companion to the main System Design Document (SDD) for the 10NetZero-FLRTS project. It provides detailed notes, LLM "meta-prompts," code block structures, and integration instructions for developing the system components, with a strong emphasis on LLM-assisted code generation. Strict compliance with the main SDD (particularly Section 0: AI Collaboration Guide & Project Directives) is assumed.
 
-# 1. Session Log with AI Collaborator
-
-This log tracks key decisions, changes in philosophy, and significant design discussions by session to provide context for future development and AI collaboration.
-
-### Session 7 (AI: Gemini) - may 15, 2025
-
-
-**Project Handoff: 10NetZero-FLRTS System**
-
+**Version:** 1.0 (Aligning with SDD v2.1)
 **Date:** May 15, 2025
-**Current AI Collaborator:** Gemini (Session 7)
-**Next AI Collaborator:** [LLM Name/Version]
 
-**1. Project Overview:**
-The 10NetZero-FLRTS system is designed for managing Field Reports, Lists, Reminders, Tasks, and Subtasks. The primary user interface was initially conceived as a Telegram Bot/MiniApp, supported by a Flask backend. Original plans involved Airtable for data storage, and integrations with a General Purpose LLM (for NLP), Todoist (for task/reminder management), and Google Drive (for SOP documents).
-**Significant architectural shifts towards using Noloco as the primary UI platform and its internal database ("Noloco Tables") have been decided (see Section 2).**
+**Purpose:** This document serves as a companion to the System Design Document (SDD v2.1) for the 10NetZero-FLRTS project. It provides detailed LLM "meta-prompts," code structure guidance, integration instructions, and testing considerations for developing the system components, with a strong emphasis on LLM-assisted code generation for the Flask backend and other programmatic elements. Strict compliance with the SDD v2.1 and the `AI_Collaboration_Guide.md` is assumed.
 
-**2. Current Status & Key Architectural Decisions (as of end of Session 7):**
+---
 
-* **UI Platform:** **Noloco** has been selected as the primary platform for building web-based UIs and dashboards for various user roles.
-* **Data Backend:** The project will use **Noloco's internal database ("Noloco Tables")** instead of Airtable.
-    * The user is comfortable relying on Noloco's "Data Explorer" / "Data Table 2.0" for administrative data management tasks, foregoing Airtable's direct UI for this purpose.
-* **Todoist Integration:** Will be **kept for the MVP phase**, utilized minimally for its specific strengths in NLP for date parsing and its robust reminder engine. A post-MVP evaluation will determine if it can be fully replaced by Noloco's capabilities or custom solutions.
-* **Flask Backend Role:** Remains a critical component for:
-    * Handling API interactions for the Telegram Bot/MiniApp.
-    * Interacting with Noloco's GraphQL API to perform CRUD operations on Noloco Tables.
-    * Executing complex programmatic server-side logic (e.g., intricate Google Drive SOP generation steps if Noloco's native integration is insufficient, advanced data transformations).
-    * Mediating the Todoist integration (syncing task data with Noloco Tables via its API).
-    * Serving as a potential API endpoint for any custom Raycast extensions.
-* **Raycast & Raycast AI:** Considered a valuable *complementary* tool for macOS users (including the project lead) to enhance productivity, assist in development (code generation/explanation for extensions, Flask, Noloco API interactions, documentation), and potentially serve as an alternative quick-access interface to the FLRTS system via custom Raycast extensions. It is **not** a replacement for the core Noloco UI, Flask backend, Noloco Tables, or cross-platform interfaces like the Telegram bot.
-* **LLM Integration (SDD Section 6):** The SDD section detailing "LLM Integration & Prompting" (original Section 6) has been deferred to "Future Features" by the user. The General Purpose LLM for parsing natural language input (e.g., from Telegram or Raycast) before hitting Flask/Todoist/Noloco is still a component.
-* **MVP Roles & Permissions Simplification:** The earlier decision for a single "FLRTS Operator" role for Telegram Bot/MiniApp users (with admin functions out-of-band) still stands but will now be implemented within Noloco's permission system for web UIs. Granular permission flags in the conceptual `Users` table (to be a Noloco Collection) are for future scalability.
+## 1. Project Overview (Reflecting SDD v2.1)
 
-**3. Key Documents & Their Status:**
+The 10NetZero-FLRTS system is designed for managing Field Reports, Lists, Reminders, Tasks, and Subtasks (FLRTS). The architecture has been finalized to use:
+* **Noloco Tables as the Single Source of Truth (SSoT)** for all data.
+* **Noloco Web Application as the primary comprehensive UI** for administrators, office personnel, and for detailed data management or form-based input by any user.
+* **A Telegram Bot as a key interaction channel for field technicians**, enabling low-friction FLRTS Create, Read, Update, Delete (CRUD) operations via typed natural language commands (for MVP).
+* **A Python Flask backend** acting as the central hub for:
+    * Powering the Telegram bot.
+    * Performing initial **intent classification** on natural language input from Telegram.
+    * Orchestrating **Natural Language Processing (NLP)**:
+        * Calling the **Todoist API** directly for its NLP capabilities on task/reminder strings (parsing dates, times, etc.) and for creating tasks in Todoist, which are then synced to Noloco Tables.
+        * Calling a **General Purpose LLM API** (e.g., OpenAI) for parsing other natural language inputs like field reports and list updates.
+    * Interacting with the **Noloco GraphQL API** for all CRUD operations on Noloco Tables.
+    * Managing integrations with **Google Drive API** (for SOP documents) and other services as needed.
+    * Handling automated site setup processes (SOP generation, default list creation in Noloco).
 
-* **`system_design_doc.md` (SDD):**
-    * Current Version: 1.5
-    * Date: May 14, 2025
-    * **Status:** The document header reflects v1.5. However, its content **requires significant updates** to align with the Noloco-centric architecture. Key sections for revision include:
-        * Section 2 (System Architecture): Replace Airtable with Noloco Tables, update data flows.
-        * Section 3 (Data Model): Rewrite to describe schema implementation in Noloco Collections, revise data synchronization for Noloco & Todoist.
-        * Section 4 (User Roles, Permissions, and Access Control): Adapt admin functions considering Noloco's UI and permission model.
-        * Section 8 (Other Key Functionalities): Revise programmatic list/SOP creation for Noloco backend, re-think safety nets.
-* **`appendix_a.md` (Conceptual Schema Definitions):**
-    * Status: The fundamental field definitions are largely intact. However, "Field Type Details" and notes need systematic updating to map Airtable types to Noloco's internal database field types and functionalities. The correction of field 18 in A.1.1 to `Initial_Site_Setup_Completed_by_App` is noted as approved.
-* **`implementation_guide.md`:**
-    * Current Version: 0.2
-    * Date: May 14, 2025
-    * Status: Updated with the latest version, date, and Session 6 log. Session 7 details should be added by the next collaborator.
-* **`AI_Collaboration_Guide.md`:**
-    * Status: Current; no changes made in Session 7. To be strictly adhered to.
-* **User-Provided Research & Documentation:**
-    * `UI platform deep research GPT-o4-mini-high.md` (Received May 14, 2025)
-    * `UI platform deep research GPT4o.md` (Received May 14, 2025)
-    * `dataset_website-content-crawler_2025-05-14_22-47-14-154.json` (Noloco documentation dump, received May 14, 2025) - This is now the primary source for Noloco feature capabilities.
+This Implementation Guide will detail the meta-prompts, code structures, and integration instructions necessary to build the Flask backend modules and configure the integrations as per the System Design Document v2.1.
 
-**4. Key Outcomes from This Session (Session 7 with Gemini):**
+---
 
-* **Confirmed architectural shift:** Noloco as the UI platform, using Noloco's internal "Collections" (Noloco Tables) as the primary datastore, replacing Airtable.
-* **Todoist Role:** Retained for MVP for NLP and reminder engine, with integration into the Noloco/Flask stack.
-* **Flask Backend:** Role reaffirmed for API intermediation (Telegram, Noloco, Todoist, GDrive), complex logic.
-* **Raycast:** Role defined as a complementary tool for macOS users and development aid, not a core platform replacement.
-* **Documentation Review:** Addressed Noloco's internal database capabilities against the project's schema requirements, using user-provided Noloco documentation and research.
-* **Handoff Preparation:** Current document generated.
+## 2. Flask Backend Modules: LLM Meta-Prompts
 
-**5. Next Steps / Areas for Immediate Focus (for the Next AI Collaborator):**
+This section provides detailed LLM meta-prompts for generating the Python code for key modules in the Flask backend application. These modules will interact with Noloco, third-party APIs, and handle the core logic of the FLRTS system as defined in the System Design Document (SDD v2.1).
 
-* **SDD Revisions (High Priority):**
-    * Begin systematically updating the `system_design_doc.md` to reflect the Noloco-centric architecture, starting with:
-        * **Section 3 (Data Model):** Detail how the schema in `appendix_a.md` will be implemented in Noloco Tables. This involves mapping field types, relationship handling (junction tables as collections, linked record fields), and how computed fields (formulas, lookups, rollups) will translate to Noloco's capabilities. Update the Data Synchronization Strategy (Flask to Noloco API, Todoist to Noloco via Flask).
-        * **Section 2 (System Architecture):** Redraw diagrams and update component descriptions.
-        * Subsequently update Sections 4 (Permissions using Noloco's model) and 8 (Key Functionalities like SOP generation, re-evaluating safety nets in Noloco).
-* **`appendix_a.md` Detailed Update:**
-    * Go through each table and field in `appendix_a.md` and update the "Field Type Details" to accurately reflect Noloco's internal database field types, relationship mechanisms, and how features like unique constraints or custom PKs will be handled (often via Noloco workflows).
-* **SDD Section 5 (UI/UX Design):**
-    * Based on the selection of Noloco, begin drafting the conceptual UI/UX for the "dream scenario" dashboards and interfaces for different user roles (FLRTS Operator, Site Manager, Admin/Executive). This will involve defining pages, key components on those pages, and user interaction flows within the Noloco environment.
-* **Task Management Deep Dive (Post-MVP Planning):**
-    * Further detail the plan for potentially phasing out Todoist post-MVP. This includes:
-        * Analyzing specific NLP requirements for date/time/recurrence and evaluating if/how they can be met by a general LLM + Flask logic or evolving Noloco features.
-        * Designing the reminder/notification system using Noloco's internal workflows (email, in-app, PWA push) and/or Flask.
-        * Defining how recurring tasks would be managed within Noloco collections and workflows.
-* **`implementation_guide.md` Update:**
-    * Add a log entry for this current session (Session 7 with Gemini).
+All generated code must adhere to the standards set in the `AI_Collaboration_Guide.md`, including:
+* Python 3.x.
+* Clear, "No Code Comments" style commenting (explaining the *why* for a non-technical audience).
+* Highly verbose logging with contextual IDs.
+* Modular design.
+* Robust error handling.
+* Use of environment variables for all secrets and configurations.
 
-**6. Key Reminders for LLM Collaborator:**
+### 2.1. `noloco_client.py` - Noloco GraphQL API Interaction
 
-* **Adhere Strictly to `AI_Collaboration_Guide.md`:** Pay close attention to the user interaction protocol (stepwise communication, direct advice), documentation standards (painful detail, layman's terms), code commenting (extreme verbosity, embedded LLM explainer prompts), and the LLM-assisted development philosophy.
-* **Modularity & Maintainability:** Prioritize these, even over raw performance for MVP.
-* **Stepwise Communication:** Present one main step, question, or topic at a time and await user confirmation/input before proceeding.
-* **Latest Source of Truth:** Always treat newly uploaded or modified documents by the user as the latest source. The Noloco documentation JSON is now a key reference.
+**Purpose:** This module will encapsulate all interactions with the Noloco GraphQL API. It will handle authentication, constructing GraphQL queries and mutations, sending requests to the Noloco API endpoint, and processing the responses (including error handling). It will provide a simplified interface for other backend modules to perform CRUD operations on Noloco Tables (Collections).
 
-### Session 6 (AI: Gemini) - May 14, 2025
+**Key Considerations for LLM:**
+* The Noloco API is a GraphQL API.
+* Authentication is typically via a Bearer token (API key). This key must be loaded from an environment variable.
+* The Noloco API endpoint URL must be loaded from an environment variable.
+* All API calls should include robust error handling (network issues, GraphQL errors, Noloco-specific errors in the response).
+* Logging should be verbose, indicating the operation being performed, the collection involved, any relevant IDs, and the outcome.
+* The module should be designed to be easily extensible for new collections and operations. Consider a generic function for making API calls, which can then be used by more specific functions.
+* Refer to "Appendix A: Noloco Table Field Definitions" for collection names and field names when constructing example queries/mutations. Field names in GraphQL queries are typically case-sensitive and match the Noloco field names.
 
-* Finalized the simplified MVP roles/permissions model (single "FLRTS Operator" for bot, admin functions out-of-band).
-* Confirmed keeping granular permission fields in the Users table schema (Appendix A) for future-proofing, while the MVP application logic (SDD Section 4) remains simple.
-* Reviewed and confirmed updates to SDD Section 4 (User Roles, Permissions, and Access Control) and Appendix A.2.3 (Users Table) to reflect these decisions.
-* Identified minor consistency checks needed across documents, including the field name correction for `Initial_Site_Setup_Completed_by_App` in Appendix A.1.1 and versioning updates.
+**LLM Meta-Prompt: Generating `noloco_client.py` - Core Structure and Generic API Call Function**
 
-### Session 5 (AI: Gemini) - may 12, 2025
+```text
+Generate a Python module named `noloco_client.py` for interacting with the Noloco GraphQL API.
 
-Yes, we've made significant progress on Appendix A, which details the Airtable field definitions.
-Here's a quick summary of where we are:
-**1** **System Design Document (SDD) v1.4 (sdd_v1_4)**: This is the main design document currently open in the canvas. I've updated it to reflect our recent decisions regarding SOPs (Google Drive integration), the refined role of SiteGPT for MVP, and other clarifications to ensure consistency with Appendix A.
-**2** **Appendix A (sdd_appendix_a)**: This is the live document where we are building the detailed field definitions. So far, we have defined the following tables from the 10NetZero_Main_Datastore base:
-	* Sites
-	* Personnel
-	* Partners
-	* Site_Partner_Assignments (Junction Table)
-	* Vendors
-	* Site_Vendor_Assignments (Junction Table)
-	* Equipment (General Assets)
-	* ASICs (Mining Hardware)
+The module should:
+1.  Import necessary libraries (e.g., `requests`, `json`, `os`, `logging`).
+2.  Initialize a logger instance (e.g., `logger = logging.getLogger(__name__)`).
+3.  Load Noloco API Key and Noloco API Endpoint URL from environment variables (`NOLOCO_API_KEY`, `NOLOCO_API_URL`). If these are not set, the module should log a critical error and potentially raise an exception or be unusable.
+4.  Define a reusable private helper function, `_make_graphql_request(query: str, variables: dict = None) -> dict | None:`, that:
+    * Accepts a GraphQL query string and an optional dictionary of variables.
+    * Constructs the HTTP headers, including the Authorization header with the Bearer token (API Key) and `Content-Type: application/json`.
+    * Constructs the JSON payload with the `query` and `variables`.
+    * Makes a POST request to the Noloco API endpoint using the `requests` library.
+    * Includes a timeout for the request.
+    * Performs robust error handling for the HTTP request (e.g., connection errors, timeouts, non-200 status codes). Logs errors extensively.
+    * If the request is successful (status code 200), it parses the JSON response.
+    * Checks the parsed JSON response for GraphQL errors (e.g., an `errors` key in the response body). If GraphQL errors are present, logs them and potentially raises a custom exception or returns an error indicator.
+    * If no HTTP or GraphQL errors, returns the `data` part of the JSON response.
+    * If any error occurs, it should return `None` or raise a specific exception after logging the error.
+5.  Include "No Code Comments" style comments explaining the purpose of the module, the environment variables it expects, and the logic of the `_make_graphql_request` function for a non-technical audience.
+6.  Ensure all logging messages are highly verbose, human-readable, and include context where possible.
+````
 
-⠀**Our immediate next step is to define the fields for the Employee_Equipment_Log Table (Junction Table)**, which is Section 3.1.9 in the SDD. I have your previous answers to my questions about this table.
-Before I add it to Appendix A, let's finalize the options for the condition fields:
-* For ConditionIssued (Single Select), what options should we use? (e.g., "New", "Good", "Fair", "Minor Wear", "Damaged")
-* For ConditionReturned (Single Select), should we use the same options, or slightly different ones? (e.g., "Same as Issued", "Good", "Fair", "Minor Wear", "Damaged", "Needs Repair", "Lost/Stolen")
+**LLM Meta-Prompt: Generating a Function to Fetch Records from a Noloco Collection (Example: Fetching Sites)**
 
-⠀Once we have these, I'll update Appendix A (sdd_appendix_a) with the complete definition for the Employee_Equipment_Log table.
+```text
+Based on the `noloco_client.py` module structure generated previously (with the `_make_graphql_request` helper function), add a new public function `get_sites(limit: int = 10, offset: int = 0, filters: dict = None) -> list | None:`.
 
+This function should:
+1.  Accept optional parameters for `limit` (number of records to return), `offset` (for pagination), and `filters` (a dictionary representing filter conditions, e.g., `{"SiteName_contains": "Alpha"}`). The exact structure of filters will depend on Noloco's GraphQL filter syntax.
+2.  Construct a GraphQL query string to fetch records from the "Sites" collection.
+    * The query should select key fields from the `Sites` collection as defined in "Appendix A: Noloco Table Field Definitions" (e.g., `SiteID_Display`, `SiteName`, `SiteStatus`, `IsActive`). Ensure field names in the query match Noloco field names.
+    * The query should incorporate arguments for pagination (e.g., `first` for limit, `skip` for offset, or equivalent Noloco syntax).
+    * Dynamically build the `where` clause for filtering if `filters` are provided, according to Noloco's GraphQL filter syntax.
+3.  Prepare the `variables` dictionary for the GraphQL query.
+4.  Call the `_make_graphql_request` function with the query and variables.
+5.  If the request is successful and data is returned, extract the list of site records from the response (the exact path depends on Noloco's GraphQL schema structure for collections). Each record in the list should be a dictionary.
+6.  Return the list of site records.
+7.  If the request fails or no data is found, log the situation and return `None` or an empty list as appropriate.
+8.  Include "No Code Comments" explaining the function's purpose, parameters, return value, and any assumptions made about Noloco's GraphQL structure.
+9.  Ensure verbose logging.
+```
 
-### Session 4 (AI: Gemini) - May 9, 2025
-**Key Outcomes & Directives Established:**
-* **Refined AI Collaboration Protocol (Now SDD Section 0):**
-  * The User (Colin) mandated a shift to a direct, consultant-client interaction model. The AI is to act as an expert consultant, providing frank advice and direct recommendations with clear reasoning.
-  * Overly agreeable or obsequious tones are to be avoided.
-  * The AI should feel empowered to flag potential issues with User decisions, explaining the rationale and possible negative consequences.
-  * Placeholder formatting in documentation standardized to ___USER_INPUT_VALUE_HERE___.
-* **Formalized Project Philosophies (Now SDD Section 0):**
-  * **Documentation:** Must be of "painful detail," targeting a highly non-technical audience.
-  * **Code Commenting:** Mandated extreme verbosity and clarity ("comment the fuck out of this"), using layman's terms. Complex code sections must include embedded LLM "explainer prompts" to help non-SMEs understand or set up the code.
-  * **LLM-Assisted Development:** This is a core mandate. The system should be designed with modularity to fit LLM context windows. Performance is secondary to simplicity and LLM-developability. Proactive identification of LLM-generatable components and pre-writing of "meta-prompts" is a key activity.
-  * **Logging:** The system must have vigorous, intuitive, layman-friendly logs. The idea of in-terminal LLM log assistance was deferred post-MVP in favor of making native logs exceptionally clear.
-* **Creation of this Document:** This 10NetZero-FLRTS_LLM_Implementation_Guide.md was conceptualized and created during this session to house meta-prompts and detailed implementation notes for LLM-driven development.
-* **SDD Reorganization:**
-  * A new "Section 0: AI COLLABORATION GUIDE & PROJECT DIRECTIVES" was added to the main SDD to capture the above protocols and philosophies.
-  * The main SDD and this LLM Implementation Guide are now considered the primary sources for handoff and session continuity, reducing the need for separate handoff documents.
-* **Todoist Integration Details (SDD Section 7):**
-  * Confirmed system-wide Todoist account (authenticated via a single API token) for MVP.
-  * Detailed API endpoints, data mapping, and user authentication flow.
-  * Specified webhook setup, including signature validation (X-Todoist-Hmac-SHA256 with ___TODOIST_CLIENT_SECRET___) and an idempotency strategy using the X-Todoist-Delivery-ID header and a store of processed IDs.
-* **Next Steps Defined:** Proceed with detailing Appendices (Airtable field lists), then Section 6 (LLM Prompting), then Section 5 (UI/UX). The idea of drafting meta-prompts proactively (starting with the Todoist webhook handler) was strongly endorsed.
+**LLM Meta-Prompt: Generating a Function to Create a Record in a Noloco Collection (Example: Creating a Site)**
 
-⠀
-# 2. Component: Todoist Webhook Handler
-**Relevant SDD Sections:**
-* Main SDD: Section 7.4: Webhook Setup for Updates from Todoist
-* Main SDD: Section 7.3: Todoist User Authentication/Token Management (for API token and client secret context)
-* Main SDD: Section 0.5: System Logging Philosophy (for logging style within the generated code)
-* Main SDD: Section 0.3: Code Commenting Standards
+```text
+Based on the `noloco_client.py` module structure, add a new public function `create_site(site_data: dict) -> dict | None:`.
 
-⠀**Environment Variables Required by this Component:**
-* ___FLASK_APP_SECRET_KEY___
-* ___TODOIST_CLIENT_SECRET___
-* ___LOG_LEVEL___
-* ___REDIS_HOST___, ___REDIS_PORT___, ___REDIS_PASSWORD___, ___REDIS_DB_WEBHOOK_IDS___ (for post-MVP)
-* ___MAX_DELIVERY_ID_CACHE_SIZE_MVP___
-* ___DELIVERY_ID_TTL_SECONDS_POST_MVP___
+This function should:
+1.  Accept a dictionary `site_data` containing the field names and values for the new site. Field names in `site_data` should correspond to Noloco field names in the "Sites" collection.
+2.  Construct a GraphQL mutation string to create a new record in the "Sites" collection.
+    * The mutation should take input variables corresponding to the fields of the `Sites` collection.
+    * The mutation should specify which fields of the newly created site record to return upon success (e.g., `SiteID_PK_Noloco`, `SiteID_Display`, `SiteName`, `CreatedAt`).
+3.  Prepare the `variables` dictionary for the GraphQL mutation.
+4.  Call the `_make_graphql_request` function with the mutation string and variables.
+5.  If the request is successful and data for the created site is returned (depending on Noloco's mutation response structure), return the dictionary representing the newly created site.
+6.  If the request fails or the creation is unsuccessful, log the error (including any validation errors returned by Noloco if possible) and return `None`.
+7.  Include "No Code Comments" explaining the function's purpose, parameters (especially `site_data` structure), return value, and any assumptions.
+8.  Ensure verbose logging.
+```
 
-⠀**Libraries/Frameworks:**
-* Python 3.x
-* Flask
-* hmac, hashlib, base64, json, collections.deque
-* (Optional post-MVP): redis
+*(Further functions for `update_record`, `delete_record`, and specific CRUD operations for other collections like `Tasks`, `Field_Reports`, `List_Items`, etc., would follow this pattern.)*
 
-⠀
-**LLM Meta-Prompt: Generating the Todoist Webhook Handler Flask Endpoint**
-Prompt omitted here for brevity. Refer to the original document for the full meta-prompt used to generate the code.
+### 2.2. `telegram_bot_handler.py` - Telegram Bot Interaction & Initial Intent Classification
 
-**Code Block Structure (to be generated by LLM based on above prompt):**
-Full Python code is written in todoist_webhook_handler.py with detailed comments, logging, and placeholders for downstream processing. This code follows all project guidelines including extreme layman-friendly commenting, modular design, and high verbosity logging.
+*(Meta-prompts to be developed)*
 
-**Integration Instructions:**
-* Import and register the Blueprint todoist_webhook_bp in the main Flask app.
-* Load environment variables using python-dotenv or OS config.
-* Register the public HTTPS webhook URL in the Todoist App Console.
-* Ensure current_app.logger is properly initialized.
+### 2.3. `intent_classifier.py` - Natural Language Intent Classification
 
-⠀
-**Testing Notes:**
-* **Signature Validation:** Send POST requests with valid, invalid, and missing HMAC headers.
-* **Idempotency:** Send duplicate and missing delivery ID headers.
-* **Payload Parsing:** Handle valid, invalid, and unsupported event types.
-* **Logging:** Review logs for clarity, level appropriateness, and presence of contextual IDs.
+*(Meta-prompts to be developed, or logic may be part of `telegram_bot_handler.py`)*
 
-⠀
-*(More components and their LLM meta-prompts would be added to this document over time as we detail them in the SDD)*
+### 2.4. `nlp_service.py` - NLP Orchestration (Todoist & General LLM)
+
+*(Meta-prompts to be developed)*
+
+### 2.5. `site_setup_module.py` - Automated Site Setup
+
+*(Meta-prompts to be developed)*
+
+-----
+
+## 3\. Integration Instructions
+
+This section will detail the setup and configuration required for integrating the Flask backend with external services.
+
+### 3.1. Noloco GraphQL API
+
+*(Instructions on obtaining API keys, endpoint URL, authentication, environment variables: `NOLOCO_API_KEY`, `NOLOCO_API_URL`)*
+
+### 3.2. Telegram Bot API
+
+*(Instructions on creating a bot, obtaining a token, environment variable: `TELEGRAM_BOT_TOKEN`)*
+
+### 3.3. Todoist API
+
+*(Instructions on obtaining an API key, relevant endpoints for Quick Add, environment variable: `TODOIST_API_KEY`)*
+
+### 3.4. General Purpose LLM API (e.g., OpenAI)
+
+*(Instructions on obtaining an API key, relevant endpoints, environment variable: `LLM_API_KEY`, `LLM_MODEL_NAME`)*
+
+### 3.5. Google Drive API
+
+*(Instructions on setting up a service account or OAuth, obtaining credentials, necessary scopes, environment variable for credentials file path: `GOOGLE_APPLICATION_CREDENTIALS`)*
+
+-----
+
+## 4\. Testing Notes
+
+This section will outline testing strategies and specific test cases for different components of the Flask backend.
+
+### 4.1. `noloco_client.py` Tests
+
+*(Test cases for successful/failed CRUD operations, error handling, response parsing)*
+
+### 4.2. Telegram Bot Interaction Tests
+
+*(Test cases for message handling, command parsing, intent classification triggers)*
+
+### 4.3. NLP Service Tests
+
+*(Test cases for Todoist NLP (date parsing), General LLM parsing accuracy for field reports/list items, error handling with NLP services)*
+
+### 4.4. End-to-End Flow Tests
+
+*(Test cases for complete user scenarios, e.g., Telegram input -\> Flask processing -\> Noloco update -\> Telegram feedback)*
 

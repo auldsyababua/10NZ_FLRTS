@@ -25,6 +25,76 @@ The 10NetZero-FLRTS system is designed to be a comprehensive platform for managi
 * A **Telegram bot interface** optimized for low-friction, natural language-based FLRTS management by field technicians.
 * A **Flask backend** to support advanced business logic, NLP orchestration, integrations not natively handled by Noloco (Todoist, Google Drive, General Purpose LLM), and to power the Telegram bot.
 
+### 1.3 Stack and Dependencies
+
+#### Core Platforms & Services:**
+
+1.  **Noloco:**
+    * **Role:** Acts as the Single Source of Truth (SSoT) with Noloco Tables for data storage, and provides the primary web UI.
+    * **Interface:** Noloco GraphQL API.
+    * *Note: This is a PaaS; use its current version.*
+
+2.  **Telegram:**
+    * **Role:** Provides the bot interface for field technician interaction using natural language.
+    * **Interface:** Telegram Bot API.
+    * *Note: This is a PaaS; use its current API version.*
+
+3.  **Todoist:**
+    * **Role:** Used for its NLP capabilities (Quick Add) for parsing tasks/reminders and for backend task management.
+    * **Interface:** Todoist REST API.
+    * *Note: This is a PaaS; use its current API version.*
+
+4.  **Google Drive:**
+    * **Role:** Storage and management of Standard Operating Procedure (SOP) documents.
+    * **Interface:** Google Drive API.
+    * *Note: This is a PaaS; use its current API version.*
+
+5.  **General Purpose LLM Provider (e.g., OpenAI):**
+    * **Role:** Handles NLP for parsing field reports, list updates, and other complex natural language inputs.
+    * **Interface:** Provider-specific API (e.g., OpenAI API, using models like GPT-4 or as defined by `LLM_MODEL_NAME`).
+    * *Note: This is a PaaS; use its current API version.*
+
+#### Backend Development (Python Flask Application):**
+
+1.  **Programming Language:**
+    * **Python:**
+        * **Role:** The language for the entire backend.
+        * **Version:** Specified as 3.x. *Advise user to target a recent stable version (e.g., 3.9+).*
+
+2.  **Web Framework:**
+    * **Flask:**
+        * **Role:** The core web framework for building the backend API, handling bot logic, and orchestrating services.
+        * *Version: Recommend latest stable (e.g., Flask 2.x or 3.x).*
+
+3.  **Key Python Libraries:**
+    * **`requests`:** For all general-purpose HTTP requests to external APIs. *Version: Latest stable.*
+    * **`python-telegram-bot`** (or a similar library like `aiogram`): For Telegram Bot API interaction. *Version: Latest stable, ensure compatibility.*
+    * **`google-api-python-client` / `google-auth`:** For Google Drive API interaction. *Version: Latest stable.*
+    * **`openai`** (if OpenAI is the chosen provider): Client library for their API. *Version: Latest stable.*
+    * **`python-dotenv`:** For managing environment variables from `.env` files. *Version: Latest stable.*
+    * **`Guidance` (Referred to by user as "windows docs"):**
+        * **Role:** Being added/considered for orchestrating LLM prompts and embedding control flow for LLM interactions.
+        * *Version: Check latest stable if adopted.*
+    * **`Guardrails AI`:**
+        * **Role:** Being added/considered for validating the structure and type of LLM outputs, particularly for ensuring reliable JSON.
+        * *Version: Check latest stable if adopted.*
+    * **Standard Libraries:** `json`, `os`, `logging` (built-in).
+
+4.  **WSGI Server (for production):**
+    * **E.g., `Gunicorn` or `Waitress`:** To run the Flask application in a production environment. *Version: Latest stable.*
+
+#### Data Formats & Protocols:**
+
+1.  **GraphQL:** For Noloco API.
+2.  **JSON:** For most API request/response payloads.
+3.  **REST APIs:** For services like Todoist.
+
+#### Hosting Platform for Flask Backend:**
+
+* **Role:** Environment where the Python Flask application will be deployed and run.
+* *Note: Specific platform (e.g., PythonAnywhere, Heroku, AWS, Google Cloud) is yet to be finalized by the user.*
+
+
 ## 2. Goals and Objectives
 
 ### 2.1. Primary Goals

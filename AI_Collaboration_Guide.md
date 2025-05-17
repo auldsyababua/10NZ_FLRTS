@@ -37,21 +37,15 @@ This document provides explicit, actionable standards and preferences for any AI
 
 When providing textual content intended for direct inclusion or replacement within project documents (e.g., System Design Document, Implementation Guide), and when discussing project details, the following standards must be observed:
 
-- **Clean Content Blocks:** Text blocks provided for copy-pasting must contain *only* the final content intended for the document. Exclude any meta-instructions, editor's notes, parenthetical comments to the User, or instructions on where to place the text (these should be in the surrounding chat, not the content block itself).
-- **Contextual Awareness & Authority (for Existing Docs):** When discussing or revising existing project documents that have been provided or previously generated in the session, demonstrate full awareness of that document's content. Avoid speculative phrasing about existing content; instead, make direct statements, comparisons, and revisions based on established facts within the provided documentation, qualified with appropriate certainty levels as per Section 1.
-- **Accurate Sectioning and Numbering:** When proposing new sections, subsections, or modifying existing numbered elements, ensure all numbering is accurate, sequential, and consistent with the target document's established structure. Use specific numbers (e.g., "Section 5.4") rather than placeholders (e.g., "Section 5.x").
-- **Holistic Revisions:** When significant changes are made to one part of a document, proactively review and update other related or dependent sections to ensure overall document consistency and coherence. The goal is to provide an updated document or section that is internally consistent, minimizing the User's need to manually identify and fix knock-on effects.
-- **Clarity on Scope of Revisions:** Clearly communicate whether a provided text block is a complete replacement for an existing section, an addition, or if it requires the User to integrate it with existing text. Prefer providing complete, revised sections or entire documents where extensive changes are made, to ensure clarity and ease of integration.
-
-- **Code Block Output for Revisions:**  
-    - When revising or updating a document, always output revised sections in code blocks on their own.
-    - If you are revising many sequential sections, you may include all of them in a single code block.
-    - If there are breaks in the revisions (i.e., non-sequential sections or unrelated changes), use a new code block for each set of changes.
-    - This approach saves tokens and reduces the influence of hallucinations.
-    - If the User wants a full document rewrite, they will explicitly request it.
-    - Remember: a revision or update in one area may affect other areas—proactively identify and revise/update all related or dependent sections to maintain overall document consistency.
-    
----
+* **Clean Content Blocks:** Text blocks provided for copy-pasting must contain *only* the final content intended for the document. Exclude any meta-instructions, editor's notes, parenthetical comments to the User, or instructions on where to place the text (these should be in the surrounding chat, not the content block itself).
+* **Contextual Awareness & Authority (for Existing Docs):** When discussing or revising existing project documents that have been provided or previously generated in the session, demonstrate full awareness of that document's content. Avoid speculative phrasing about existing content; instead, make direct statements, comparisons, and revisions based on established facts within the provided documentation, qualified with appropriate certainty levels as per Section 1.
+* **Accurate Sectioning and Numbering:** When proposing new sections, subsections, or modifying existing numbered elements, ensure all numbering is accurate, sequential, and consistent with the target document's established structure. Use specific numbers (e.g., "Section 5.4") rather than placeholders (e.g., "Section 5.x").
+* **Holistic Revisions:** When significant changes are made to one part of a document, proactively review and update other related or dependent sections to ensure overall document consistency and coherence. The goal is to provide an updated document or section that is internally consistent, minimizing the User's need to manually identify and fix knock-on effects.
+* **Clarity on Scope of Revisions & Delivery Method:**
+    * Clearly communicate whether a provided text block is a complete replacement for an existing section, an addition, or if it requires the User to integrate it with existing text.
+    * **Default Delivery Method for Revisions:** Provide revised sections in standalone code blocks. Multiple sequential revised sections can be in a single code block. If there are breaks (unchanged sections) between revised sections, use a new code block for the next set of revisions. This method is preferred to save tokens, reduce cognitive load on the AI, and ensure the User maintains close control over document integration.
+    * **Full Document Rewrites:** Only provide a full rewrite of an entire document if explicitly requested by the User.
+* **Prefacing Revisions:** Do not preface content blocks with lengthy explanations of what is about to be provided if the context is already clear from the preceding conversation. Directly provide the revised content block or the concise list of changes as requested.
 
 ## 4. Field Definition Formatting Standards
 
