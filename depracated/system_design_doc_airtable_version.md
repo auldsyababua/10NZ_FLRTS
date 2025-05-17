@@ -562,29 +562,630 @@ For the Minimum Viable Product (MVP), the roles and permissions structure within
 
 ## 8. Development Phases
 
-### 8.1. MVP Development
+### 8.1. Noloco Data Setup
+1. **Register/Access Noloco Account**
+   * Sign up or log in to Noloco platform
+   * Create a new project named "10NetZero-FLRTS"
 
-* **Duration:** 3 months
-* **Key Milestones:**
-    * Complete system design and architecture
-    * Implement core functionalities and MVP features
-    * Conduct initial user testing
-* **Deliverables:**
-    * MVP system
-    * User manual
-    * Initial testing report
+2. **Prepare CSV Files for Initial Data Import (Optional)**
+   * Create CSV templates for each collection with proper headers matching field names
+   * For each collection in Appendix A (Sites, Personnel, Partners, etc.), create a separate CSV
+   * Include at least 2-3 sample records for testing
 
-### 8.2. Post-MVP Development
+3. **Create Collections in Noloco**
+   * **Sites Collection**
+     * Navigate to Collections section in Noloco
+     * Click "Create new collection" and name it "Sites"
+     * Add fields according to Appendix A.1.1, setting proper field types:
+       * SiteID_Display (Text)
+       * SiteName (Text)
+       * SiteAddress_Street (Text)
+       * SiteAddress_City (Text) 
+       * [Continue with all other fields]
+     * Set field validations (required fields, unique constraints)
+     * Import sample data if available
 
-* **Duration:** 6 months
-* **Key Milestones:**
-    * Complete integration of SiteGPT
-    * Implement additional features and functionalities
-    * Conduct extensive user testing
-* **Deliverables:**
-    * Full system
-    * User manual
-    * Final testing report
+   * **Personnel Collection**
+     * Create "Personnel" collection
+     * Add fields according to Appendix A.1.2
+     * Set validations
+     * Import sample data if available
+
+   * **Partners Collection**
+     * Create "Partners" collection
+     * Add fields according to Appendix A.1.3
+     * Set validations
+     * Import sample data if available
+
+   * **[Continue with all other collections from Appendix A]**
+     * Vendors (A.1.4)
+     * Operators (A.1.5)
+     * Site_Partner_Assignments (A.1.6)
+     * Site_Vendor_Assignments (A.1.7)
+     * Equipment (A.1.8)
+     * ASICs (A.1.9)
+     * Licenses & Agreements (A.1.10)
+     * Users (A.1.11)
+     * Field_Reports (A.2.1)
+     * Lists (A.2.2)
+     * List_Items (A.2.3)
+     * Tasks (A.2.4)
+     * Reminders (A.2.5)
+     * Notifications_Log (A.2.6)
+     * Field_Report_Edits (A.2.7)
+
+4. **Set Up Relationships Between Collections**
+   * Configure one-to-many and many-to-many relationships:
+     * Link Sites to Equipment, ASICs, Partners, etc.
+     * Set up junction tables for many-to-many relationships
+     * Test relationship navigation
+
+5. **Create Basic Noloco Views and Forms**
+   * Create default views for each collection
+   * Set up forms for data entry
+   * Configure dashboard views for commonly accessed data
+
+6. **Get Noloco API Information**
+   * Navigate to API settings in Noloco
+   * Generate API key and copy it securely
+   * Note the GraphQL endpoint URL
+   * Save these for use in the .env file later
+
+7. **Test Noloco Setup**
+   * Create test records through Noloco interface
+   * Verify relationships work properly
+   * Ensure required fields and validations are working
+
+### 8.2. External Services Setup
+
+1. **Telegram Bot Setup**
+   * Visit https://t.me/BotFather on Telegram
+   * Create a new bot with `/newbot` command
+   * Choose a name and username for your bot
+   * Copy the HTTP API token provided
+   * Set up bot commands with `/setcommands`
+   * Save the token for later
+
+2. **Todoist API Setup**
+   * Create/log in to Todoist account
+   * Go to Integrations → Developer
+   * Create a new app and generate API token
+   * Copy the API token
+   * Save for later
+
+3. **Google Drive API Setup**
+   * Go to Google Cloud Console (https://console.cloud.google.com/)
+   * Create a new project
+   * Enable the Google Drive API
+   * Configure OAuth consent screen
+   * Create OAuth client ID credentials
+   * Download credentials JSON file
+   * Save for later
+
+4. **LLM API Setup (OpenAI or similar)**
+   * Create/log in to OpenAI account
+   * Go to API keys section
+   * Generate new API key
+   * Copy the API key
+   * Save for later
+
+### 8.3. Flask Backend Setup
+
+1. **Create Flask Project**
+   * Use Replit Flask template (https://replit.com/@replit/Flask)
+   * Alternatively, create locally:
+     ```bash
+     mkdir 10netzero-flrts
+     cd 10netzero-flrts
+     ```
+
+2. **Set Up Python Environment**
+   * If using local development:
+     ```bash
+     python -m venv venv
+     # On Windows:
+     venv\Scripts\activate
+     # On macOS/Linux:
+     source venv/bin/activate
+     ```
+
+3. **Install Dependencies**
+   * Create/update requirements.txt with:
+     ```
+     flask==2.0.1
+     python-telegram-bot==13.7
+     python-dotenv==0.19.0
+     requests==2.26.0
+     gql==3.0.0
+     google-api-python-client==2.24.0
+     google-auth==2.3.0
+     google-auth-oauthlib==0.4.6
+     openai==0.27.0
+     gunicorn==20.1.0
+     ```
+   * Install dependencies:
+     ```bash
+     pip install -r requirements.txt
+     ```
+
+4. **Create Project Structure**
+   * Set up basic folder structure:
+     ```bash
+     mkdir -p app/{api,bot,nlp,services,utils}
+     touch app/__init__.py
+     touch app/api/__init__.py
+     touch app/bot/__init__.py
+     touch app/nlp/__init__.py
+     touch app/services/__init__.py
+     touch app/utils/__init__.py
+     ```
+
+5. **Create .env File**
+   * Create .env file in project root:
+     ```bash
+     touch .env
+     ```
+   * Add all API keys and endpoints:
+     ```
+     # Noloco API
+     NOLOCO_API_KEY=your_noloco_api_key
+     NOLOCO_API_URL=your_noloco_graphql_endpoint
+
+     # Telegram Bot
+     TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+
+     # Todoist API
+     TODOIST_API_KEY=your_todoist_api_key
+
+     # LLM API (e.g., OpenAI)
+     LLM_API_KEY=your_openai_api_key
+     LLM_MODEL_NAME=gpt-4
+
+     # Google Drive API
+     GOOGLE_APPLICATION_CREDENTIALS=path_to_your_credentials_file
+     ```
+
+6. **Create Basic Flask App Structure**
+   * Create app/__init__.py:
+     ```python
+     from flask import Flask
+
+     def create_app():
+         app = Flask(__name__)
+         
+         # Register blueprints here (to be created later)
+         
+         @app.route('/health')
+         def health_check():
+             return {"status": "healthy"}
+             
+         return app
+     ```
+   * Create main.py in root:
+     ```python
+     from app import create_app
+
+     app = create_app()
+
+     if __name__ == "__main__":
+         app.run(debug=True)
+     ```
+
+### 8.4. Develop Flask Backend Modules
+
+#### Module 1: Noloco Client
+
+1. **Create Noloco Client Module**
+   * Create file: app/api/noloco_client.py
+   * Implement GraphQL client for Noloco:
+     ```python
+     import os
+     import logging
+     import requests
+     import json
+     from dotenv import load_dotenv
+
+     load_dotenv()
+
+     logger = logging.getLogger(__name__)
+
+     NOLOCO_API_KEY = os.getenv("NOLOCO_API_KEY")
+     NOLOCO_API_URL = os.getenv("NOLOCO_API_URL")
+
+     def _make_graphql_request(query, variables=None):
+         """Helper function to make GraphQL requests to Noloco API"""
+         # Implementation here
+     
+     def get_sites(limit=10, offset=0, filters=None):
+         """Get sites from Noloco with pagination and filtering"""
+         # Implementation here
+     
+     # Add other CRUD functions for each collection
+     ```
+
+2. **Test Noloco Client**
+   * Create a test script for the Noloco client:
+     ```python
+     from app.api.noloco_client import get_sites
+     
+     def test_noloco_client():
+         sites = get_sites(limit=5)
+         print(f"Retrieved {len(sites)} sites:")
+         for site in sites:
+             print(f"- {site['SiteName']}")
+     
+     if __name__ == "__main__":
+         test_noloco_client()
+     ```
+   * Run the test script
+
+#### Module 2: Telegram Bot Handler
+
+1. **Create Telegram Bot Handler Module**
+   * Create file: app/bot/telegram_bot_handler.py
+   * Implement bot setup and message handling:
+     ```python
+     import os
+     import logging
+     from telegram import Update
+     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+     from dotenv import load_dotenv
+     
+     load_dotenv()
+     
+     logger = logging.getLogger(__name__)
+     
+     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+     
+     def start_command(update: Update, context: CallbackContext):
+         """Handle the /start command"""
+         # Implementation here
+     
+     def help_command(update: Update, context: CallbackContext):
+         """Handle the /help command"""
+         # Implementation here
+     
+     def handle_message(update: Update, context: CallbackContext):
+         """Handle text messages"""
+         # Implementation here
+     
+     def setup_bot():
+         """Set up the Telegram bot with handlers"""
+         # Implementation here
+     ```
+   
+2. **Integrate with Flask**
+   * Create blueprint for Telegram webhook:
+     ```python
+     # app/bot/routes.py
+     from flask import Blueprint, request, jsonify
+     
+     telegram_bp = Blueprint('telegram', __name__)
+     
+     @telegram_bp.route('/webhook', methods=['POST'])
+     def telegram_webhook():
+         # Implementation here
+     ```
+   * Register blueprint in app/__init__.py
+
+3. **Test Telegram Bot**
+   * Create a test script:
+     ```python
+     from app.bot.telegram_bot_handler import setup_bot
+     
+     def test_telegram_bot():
+         bot = setup_bot()
+         # Manual polling for testing
+         bot.start_polling()
+         print("Bot started polling...")
+         bot.idle()
+     
+     if __name__ == "__main__":
+         test_telegram_bot()
+     ```
+   * Run the test script
+
+#### Module 3: Intent Classifier
+
+1. **Create Intent Classifier Module**
+   * Create file: app/nlp/intent_classifier.py
+   * Implement basic intent classification:
+     ```python
+     import re
+     import logging
+     
+     logger = logging.getLogger(__name__)
+     
+     # Intent types
+     INTENT_TASK = "TASK"
+     INTENT_FIELD_REPORT = "FIELD_REPORT"
+     INTENT_LIST_UPDATE = "LIST_UPDATE"
+     INTENT_QUERY = "QUERY"
+     INTENT_UNKNOWN = "UNKNOWN"
+     
+     def classify_intent(text):
+         """Classify the intent of a message"""
+         # Implementation here
+     ```
+
+2. **Test Intent Classifier**
+   * Create a test script:
+     ```python
+     from app.nlp.intent_classifier import classify_intent
+     
+     def test_intent_classifier():
+         test_messages = [
+             "Remind me to check Site Alpha tomorrow",
+             "Field report for Site Bravo: All systems operational",
+             "Add thermal paste to the Site Charlie shopping list",
+             "What are my tasks for today?",
+             "Hello, how are you?"
+         ]
+         
+         for message in test_messages:
+             intent = classify_intent(message)
+             print(f"Message: '{message}'")
+             print(f"Intent: {intent}")
+             print("---")
+     
+     if __name__ == "__main__":
+         test_intent_classifier()
+     ```
+   * Run the test script
+
+#### Module 4: NLP Service (Todoist & General LLM)
+
+1. **Create Todoist Integration Module**
+   * Create file: app/services/todoist_integration.py
+   * Implement Todoist API client:
+     ```python
+     import os
+     import logging
+     import requests
+     from dotenv import load_dotenv
+     
+     load_dotenv()
+     
+     logger = logging.getLogger(__name__)
+     
+     TODOIST_API_KEY = os.getenv("TODOIST_API_KEY")
+     
+     def add_task_with_nlp(text):
+         """Use Todoist Quick Add to parse and create a task"""
+         # Implementation here
+     
+     def sync_task_to_noloco(todoist_task):
+         """Sync a Todoist task to Noloco Tasks collection"""
+         # Implementation here
+     ```
+
+2. **Create LLM Service Module**
+   * Create file: app/services/llm_service.py
+   * Implement LLM API client:
+     ```python
+     import os
+     import logging
+     import openai
+     from dotenv import load_dotenv
+     
+     load_dotenv()
+     
+     logger = logging.getLogger(__name__)
+     
+     LLM_API_KEY = os.getenv("LLM_API_KEY")
+     LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
+     
+     openai.api_key = LLM_API_KEY
+     
+     def parse_field_report(text):
+         """Use LLM to parse a field report into structured data"""
+         # Implementation here
+     
+     def parse_list_update(text):
+         """Use LLM to parse a list update into structured data"""
+         # Implementation here
+     ```
+
+3. **Create NLP Orchestration Module**
+   * Create file: app/nlp/nlp_service.py
+   * Implement orchestration between intent and NLP services:
+     ```python
+     import logging
+     from app.nlp.intent_classifier import classify_intent, INTENT_TASK, INTENT_FIELD_REPORT, INTENT_LIST_UPDATE, INTENT_QUERY
+     from app.services.todoist_integration import add_task_with_nlp, sync_task_to_noloco
+     from app.services.llm_service import parse_field_report, parse_list_update
+     
+     logger = logging.getLogger(__name__)
+     
+     def process_natural_language(text):
+         """Process natural language input based on intent"""
+         # Implementation here
+     ```
+
+4. **Test NLP Service**
+   * Create a test script:
+     ```python
+     from app.nlp.nlp_service import process_natural_language
+     
+     def test_nlp_service():
+         test_messages = [
+             "Remind me to check Site Alpha tomorrow at 9am",
+             "Field report for Site Bravo: Generator running at 80% capacity, no issues detected",
+             "Add thermal paste and screwdrivers to the Site Charlie shopping list"
+         ]
+         
+         for message in test_messages:
+             print(f"Processing: '{message}'")
+             result = process_natural_language(message)
+             print(f"Result: {result}")
+             print("---")
+     
+     if __name__ == "__main__":
+         test_nlp_service()
+     ```
+   * Run the test script
+
+#### Module 5: Google Drive Integration
+
+1. **Create Google Drive Integration Module**
+   * Create file: app/services/google_drive_integration.py
+   * Implement Google Drive API client:
+     ```python
+     import os
+     import logging
+     from google.oauth2 import service_account
+     from googleapiclient.discovery import build
+     from dotenv import load_dotenv
+     
+     load_dotenv()
+     
+     logger = logging.getLogger(__name__)
+     
+     CREDENTIALS_FILE = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+     
+     def authenticate_drive():
+         """Authenticate with Google Drive API"""
+         # Implementation here
+     
+     def create_sop_document(site_name, site_id):
+         """Create a new SOP document for a site"""
+         # Implementation here
+     
+     def set_document_permissions(document_id, emails):
+         """Set permissions for the SOP document"""
+         # Implementation here
+     ```
+
+2. **Test Google Drive Integration**
+   * Create a test script:
+     ```python
+     from app.services.google_drive_integration import create_sop_document, set_document_permissions
+     
+     def test_google_drive():
+         site_name = "Test Site"
+         site_id = "TST001"
+         
+         print(f"Creating SOP document for {site_name} ({site_id})...")
+         doc_id, doc_url = create_sop_document(site_name, site_id)
+         
+         print(f"Document created with ID: {doc_id}")
+         print(f"Document URL: {doc_url}")
+         
+         # Test setting permissions
+         emails = ["test@example.com"]
+         set_document_permissions(doc_id, emails)
+         print(f"Set permissions for: {', '.join(emails)}")
+     
+     if __name__ == "__main__":
+         test_google_drive()
+     ```
+   * Run the test script
+
+#### Module 6: Site Setup Module
+
+1. **Create Site Setup Module**
+   * Create file: app/services/site_setup_module.py
+   * Implement automated site setup:
+     ```python
+     import logging
+     from app.api.noloco_client import get_site_by_id, update_site
+     from app.services.google_drive_integration import create_sop_document, set_document_permissions
+     
+     logger = logging.getLogger(__name__)
+     
+     def create_default_lists(site_id):
+         """Create default lists for a new site"""
+         # Implementation here
+     
+     def setup_new_site(site_id):
+         """Run the complete site setup process"""
+         # Implementation here
+     ```
+
+2. **Test Site Setup Module**
+   * Create a test script:
+     ```python
+     from app.services.site_setup_module import setup_new_site
+     
+     def test_site_setup():
+         # Use a test site ID
+         site_id = "TST001"
+         
+         print(f"Running setup for site ID: {site_id}...")
+         result = setup_new_site(site_id)
+         
+         print(f"Setup completed with result: {result}")
+     
+     if __name__ == "__main__":
+         test_site_setup()
+     ```
+   * Run the test script
+
+### 8.5. Integration and Testing
+
+1. **Connect Modules in Main Flask Application**
+   * Update app/__init__.py to integrate all modules
+   * Create necessary routes and webhooks
+   * Implement error handling
+
+2. **Implement End-to-End Testing**
+   * Create comprehensive test cases
+   * Test the complete workflow:
+     * Telegram message → Intent classification → NLP processing → Noloco update
+     * Site creation → Automated setup
+
+3. **Logging and Monitoring**
+   * Implement detailed logging
+   * Create monitoring endpoints
+   * Set up error alerts
+
+### 8.6. Deployment
+
+1. **Prepare for Production**
+   * Configure WSGI server (Gunicorn)
+   * Create Procfile (if using Heroku or similar):
+     ```
+     web: gunicorn main:app
+     ```
+   * Set up environment variables on hosting platform
+
+2. **Deploy the Application**
+   * Choose hosting platform (Heroku, PythonAnywhere, AWS, etc.)
+   * Follow platform-specific deployment steps
+   * Set up webhook URL with Telegram
+
+3. **Post-Deployment Testing**
+   * Verify all integrations work in production
+   * Test with real users
+   * Monitor for errors
+
+### 8.7. Documentation and User Training
+
+1. **Create User Documentation**
+   * Document Telegram bot commands
+   * Create user guides for Noloco interface
+
+2. **Create Technical Documentation**
+   * Document API endpoints
+   * Describe system architecture
+   * Detail deployment and maintenance procedures
+
+3. **Train Users**
+   * Conduct training sessions
+   * Provide support for initial usage
+
+### 8.8. Maintenance and Iteration
+
+1. **Monitor System Performance**
+   * Track usage metrics
+   * Monitor error rates
+   * Check integration health
+
+2. **Iterate Based on Feedback**
+   * Collect user feedback
+   * Implement improvements
+   * Update documentation
+
 
 ## 9. Future Features
 
