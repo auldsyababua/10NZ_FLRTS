@@ -1,0 +1,323 @@
+"""
+10NetZero-FLRTS Flask Backend Application
+
+This module initializes the Flask application for the 10NetZero-FLRTS system.
+The application serves as the central nervous system for intelligent processing,
+integrations, and interactions originating from the Telegram bot interface.
+
+Core Responsibilities:
+- Receiving and processing natural language commands from Telegram
+- Initial intent classification for user inputs
+- NLP orchestration with external APIs (Todoist, OpenAI, Google Drive)
+- Supabase database interaction for CRUD operations
+- Business logic orchestration across multiple services
+
+Architecture follows the system design document specifications with modular
+service-oriented design for maintainability and scalability.
+"""
+
+import logging
+import sys
+from pathlib import Path
+from typing import Optional
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+# Add the backend directory to Python path for imports
+backend_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(backend_dir))
+
+from config.settings import settings
+
+
+def create_app(config_override: Optional[dict] = None) -> Flask:
+    """
+    Flask application factory function.
+    
+    This factory pattern allows for different configurations during testing,
+    development, and production. The application is configured based on
+    environment variables and the settings module.
+    
+    Args:
+        config_override: Optional dictionary to override default configuration
+        
+    Returns:
+        Configured Flask application instance
+    """
+    
+    # Initialize Flask application
+    app = Flask(__name__)
+    
+    # Configure Flask from settings
+    app.config.update({
+        'SECRET_KEY': settings.flask_secret_key,
+        'DEBUG': settings.flask_debug,
+        'TESTING': False,
+        'WTF_CSRF_ENABLED': False,  # Disabled for API endpoints
+        'JSON_SORT_KEYS': False,
+        'JSONIFY_PRETTYPRINT_REGULAR': settings.is_development,
+    })
+    
+    # Apply any configuration overrides (useful for testing)
+    if config_override:
+        app.config.update(config_override)
+    
+    # Initialize CORS for cross-origin requests
+    CORS(app, origins=settings.cors_origins)
+    
+    # Configure logging
+    configure_logging(app)
+    
+    # Validate configuration before startup
+    config_errors = settings.validate_configuration()
+    if config_errors:
+        app.logger.error("Configuration validation failed:")
+        for error in config_errors:
+            app.logger.error(f"  - {error}")
+        if settings.is_production:
+            raise RuntimeError("Invalid configuration in production environment")
+        else:
+            app.logger.warning("Running with incomplete configuration (development mode)")
+    
+    # Register blueprints and routes
+    register_blueprints(app)
+    
+    # Register error handlers
+    register_error_handlers(app)
+    
+    # Add request/response logging for development
+    if settings.is_development:
+        register_request_logging(app)
+    
+    app.logger.info(f"10NetZero-FLRTS backend initialized in {settings.environment} mode")
+    
+    return app
+
+
+def configure_logging(app: Flask) -> None:
+    """
+    Configure application logging based on environment settings.
+    
+    Sets up structured logging with appropriate formatters and handlers
+    for both file and console output. Log levels are configured based
+    on the environment (DEBUG for development, WARNING for production).
+    
+    Args:
+        app: Flask application instance
+    """
+    
+    # Set log level
+    log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    app.logger.setLevel(log_level)
+    
+    # Remove default Flask handlers to avoid duplication
+    app.logger.handlers.clear()
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        settings.log_format,
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Console handler for all environments
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(log_level)
+    app.logger.addHandler(console_handler)
+    
+    # File handler for persistent logging
+    try:
+        # Ensure log directory exists
+        log_file = Path(settings.log_file_path)
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(log_level)
+        app.logger.addHandler(file_handler)
+        
+        app.logger.info(f"File logging configured: {log_file}")
+        
+    except Exception as e:
+        app.logger.warning(f"Could not configure file logging: {e}")
+    
+    # Disable Flask's default request logging in production
+    if settings.is_production:
+        logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+
+def register_blueprints(app: Flask) -> None:
+    """
+    Register all Flask blueprints for organizing routes.
+    
+    Blueprints provide modular organization of routes and handlers.
+    Each major functional area (Telegram, webhooks, API endpoints)
+    has its own blueprint for maintainability.
+    
+    Args:
+        app: Flask application instance
+    """
+    
+    # Health check and status endpoints
+    @app.route('/health')
+    def health_check():
+        """Simple health check endpoint for monitoring and load balancers."""
+        return jsonify({
+            'status': 'healthy',
+            'service': '10NetZero-FLRTS Backend',
+            'environment': settings.environment,
+            'version': '1.0.0'
+        })
+    
+    @app.route('/status')
+    def status_check():
+        """Detailed status endpoint with service connectivity checks."""
+        status = {
+            'service': '10NetZero-FLRTS Backend',
+            'environment': settings.environment,
+            'status': 'operational',
+            'components': {}
+        }
+        
+        # Check database connectivity
+        try:
+            from app.services.database_client import DatabaseClient
+            db_client = DatabaseClient()
+            db_status = db_client.check_connection()
+            status['components']['database'] = 'healthy' if db_status else 'unhealthy'
+        except Exception as e:
+            app.logger.error(f"Database status check failed: {e}")
+            status['components']['database'] = 'error'
+        
+        # Check external API configurations
+        status['components']['telegram'] = 'configured' if settings.telegram_bot_token else 'not_configured'
+        status['components']['openai'] = 'configured' if settings.openai_api_key else 'not_configured'
+        status['components']['todoist'] = 'configured' if settings.todoist_api_token else 'not_configured'
+        
+        return jsonify(status)
+    
+    # Import and register blueprint modules
+    try:
+        from app.handlers.telegram_handler import telegram_bp
+        app.register_blueprint(telegram_bp, url_prefix='/telegram')
+        app.logger.info("Telegram handler blueprint registered")
+    except ImportError as e:
+        app.logger.warning(f"Could not register Telegram blueprint: {e}")
+    
+    try:
+        from app.handlers.api_handler import api_bp
+        app.register_blueprint(api_bp, url_prefix='/api')
+        app.logger.info("API handler blueprint registered")
+    except ImportError as e:
+        app.logger.warning(f"Could not register API blueprint: {e}")
+
+
+def register_error_handlers(app: Flask) -> None:
+    """
+    Register global error handlers for consistent error responses.
+    
+    Provides structured error handling with appropriate HTTP status codes
+    and error messages. In production, sensitive error details are
+    hidden from API responses for security.
+    
+    Args:
+        app: Flask application instance
+    """
+    
+    @app.errorhandler(400)
+    def bad_request(error):
+        """Handle bad request errors with structured response."""
+        app.logger.warning(f"Bad request: {error}")
+        return jsonify({
+            'error': 'Bad Request',
+            'message': 'The request could not be understood or was malformed',
+            'status_code': 400
+        }), 400
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        """Handle not found errors with structured response."""
+        return jsonify({
+            'error': 'Not Found',
+            'message': 'The requested resource could not be found',
+            'status_code': 404
+        }), 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        """Handle internal server errors with appropriate detail level."""
+        app.logger.error(f"Internal server error: {error}")
+        
+        response = {
+            'error': 'Internal Server Error',
+            'message': 'An unexpected error occurred',
+            'status_code': 500
+        }
+        
+        # Include error details in development mode only
+        if settings.is_development:
+            response['debug_info'] = str(error)
+        
+        return jsonify(response), 500
+    
+    @app.errorhandler(Exception)
+    def handle_exception(error):
+        """Handle all unhandled exceptions with logging and structured response."""
+        app.logger.error(f"Unhandled exception: {error}", exc_info=True)
+        
+        response = {
+            'error': 'Unexpected Error',
+            'message': 'An unexpected error occurred while processing your request',
+            'status_code': 500
+        }
+        
+        if settings.is_development:
+            response['debug_info'] = str(error)
+            response['type'] = type(error).__name__
+        
+        return jsonify(response), 500
+
+
+def register_request_logging(app: Flask) -> None:
+    """
+    Register request/response logging for development debugging.
+    
+    Logs all incoming requests and outgoing responses in development mode
+    to help with debugging and understanding application flow.
+    
+    Args:
+        app: Flask application instance
+    """
+    
+    @app.before_request
+    def log_request_info():
+        """Log incoming request details for debugging."""
+        if request.path.startswith('/health'):
+            return  # Skip health check logging to reduce noise
+        
+        app.logger.debug(f"Request: {request.method} {request.path}")
+        if request.args:
+            app.logger.debug(f"Query params: {dict(request.args)}")
+        if request.json:
+            app.logger.debug(f"Request body: {request.json}")
+    
+    @app.after_request
+    def log_response_info(response):
+        """Log outgoing response details for debugging."""
+        if request.path.startswith('/health'):
+            return response  # Skip health check logging
+        
+        app.logger.debug(f"Response: {response.status_code}")
+        return response
+
+
+# Create application instance for development server
+app = create_app()
+
+if __name__ == '__main__':
+    app.run(
+        host=settings.flask_host,
+        port=settings.flask_port,
+        debug=settings.flask_debug
+    )
