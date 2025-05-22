@@ -1,48 +1,33 @@
 {
-  "name": "flrts-project-mcp",
-  "version": "0.1.0",
-  "description": "Project-specific MCP for 10NetZero FLRTS App with additional static MCPs",
-  "contexts": [
+  "servers": [
     {
-      "name": "Python MCP",
-      "type": "mcp",
-      "url": "https://www.modelcontextprotocol.com/mcp/python"
+      "name": "Todoist",
+      "command": "npx -y @modelcontextprotocol/todoist-mcp",
+      "env": ["TODOIST_API_TOKEN"]
     },
     {
-      "name": "OpenAI MCP",
-      "type": "mcp",
-      "url": "https://www.modelcontextprotocol.com/mcp/openai"
+      "name": "GoogleDrive",
+      "type": "custom",
+      "command": "npx -y @modelcontextprotocol/googledrive-mcp",
+      "env": ["GOOGLE_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
     },
     {
-      "name": "Telegram Bot MCP",
-      "type": "mcp",
-      "url": "https://www.modelcontextprotocol.com/mcp/telegram-bot"
+      "name": "Noloco",
+      "type": "custom",
+      "command": "npx -y @modelcontextprotocol/noloco-mcp",
+      "env": ["NOLOCO_API_KEY", "NOLOCO_API_URL"]
+    },
+    {
+      "name": "TelegramBot",
+      "type": "custom",
+      "command": "npx -y @modelcontextprotocol/telegram-mcp",
+      "env": ["TELEGRAM_BOT_TOKEN"]
+    },
+    {
+      "name": "Supabase",
+      "type": "custom",
+      "command": "npx -y @supabase/mcp-server-supabase@latest",
+      "env": ["SUPABASE_ACCESS_TOKEN", "SUPABASE_READ_ONLY"]
     }
-  ],
-  "mcpServers": { 
-    "todoist": { 
-      "command": "npx", 
-      "args": [ 
-        "-y", 
-        "@abhiz123/todoist-mcp-server"
-      ], 
-      "env": { 
-        "TODOIST_API_TOKEN": "YOUR_TODOIST_TOKEN" 
-      } 
-    },
-    "postgres": { 
-      "command": "npx", 
-      "args": [ 
-        "-y", 
-        "postgres-mcp"
-      ] 
-    }, 
-    "google-drive": { 
-      "command": "npx", 
-      "args": [ 
-        "-y", 
-        "@anthropic-mcp/google-drive"
-      ] 
-    } 
-  } 
+  ]
 }

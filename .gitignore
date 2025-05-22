@@ -1,0 +1,72 @@
+# Claude Code
+.claude/
+
+# Environment and sensitive files
+.env
+.env.local
+.env.production
+.env.staging
+*.pem
+*.key
+
+# MCP environment files
+.mcp/.env
+.mcp/logs/
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Node modules (for MCP servers)
+node_modules/
+
+# Supabase
+.branches
+.temp
