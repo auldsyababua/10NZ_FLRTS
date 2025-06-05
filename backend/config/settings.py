@@ -7,7 +7,7 @@ Different configurations are available for development, testing, and production 
 """
 
 import os
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -81,8 +81,9 @@ class Settings(BaseSettings):
     log_backup_count: int = 5
     
     # Security Configuration
-    cors_origins: list[str] = ["*"]  # Configure appropriately for production
+    cors_origins: str = "*"  # Configure appropriately for production
     rate_limit_per_minute: int = 60
+    api_keys: List[str] = []  # List of valid API keys - loaded from environment
     
     @property
     def database_connection_string(self) -> str:
@@ -110,6 +111,18 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Returns True if running in development environment."""
         return self.environment.lower() == "development"
+    
+    def __init__(self, **data):
+        """Initialize settings and load API keys from environment."""
+        super().__init__(**data)
+        # Load API keys from environment
+        # API keys can be provided as a comma-separated list in API_KEYS env variable
+        api_keys_env = os.getenv('API_KEYS', '')
+        if api_keys_env:
+            self.api_keys = [key.strip() for key in api_keys_env.split(',') if key.strip()]
+        # In development, add a default API key if none provided
+        if self.is_development and not self.api_keys:
+            self.api_keys = ['dev-api-key-12345']
     
     def validate_configuration(self) -> list[str]:
         """

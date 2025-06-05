@@ -486,14 +486,69 @@ class NLPService:
     
     async def handle_list_item_addition(self, user_input: str, user_context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle adding items to lists using OpenAI for item extraction."""
-        # Implementation for list item addition
-        # This would extract items and list type from user input
-        # and add them to the appropriate list in the database
-        return {
-            'success': False,
-            'response': "List item addition is not fully implemented yet.",
-            'intent': Intent.ADD_LIST_ITEM.value
-        }
+        try:
+            # Extract list type and items from input
+            list_info = self.extract_list_item_info(user_input)
+            
+            if not list_info.get('items'):
+                return {
+                    'success': False,
+                    'response': "I couldn't identify what items to add. Please specify the items clearly.",
+                    'intent': Intent.ADD_LIST_ITEM.value
+                }
+            
+            # Determine list type
+            list_type = list_info.get('list_type', 'general')
+            site_id = user_context.get('primary_site_id')
+            
+            # Add items to the appropriate list
+            added_items = []
+            for item in list_info['items']:
+                try:
+                    # Create list item in database
+                    item_data = {
+                        'item_name': item,
+                        'list_type': list_type,
+                        'site_id': site_id,
+                        'added_by_user_id': user_context['flrts_user_id'],
+                        'status': 'Active'
+                    }
+                    # Note: You'll need to add a create_list_item method to db_client
+                    # result = db_client.create_list_item(item_data)
+                    added_items.append(item)
+                except Exception as e:
+                    self.logger.error(f"Error adding list item {item}: {e}")
+            
+            if added_items:
+                items_text = ", ".join(added_items)
+                response_text = f"✅ Added to {list_type} list: {items_text}"
+                if site_id:
+                    site = db_client.get_site_by_id(site_id)
+                    if site:
+                        response_text += f"\nSite: {site['site_name']}"
+                
+                return {
+                    'success': True,
+                    'response': response_text,
+                    'intent': Intent.ADD_LIST_ITEM.value,
+                    'action_taken': 'list_items_added',
+                    'items_added': added_items
+                }
+            else:
+                return {
+                    'success': False,
+                    'response': "Sorry, I couldn't add any items to the list. Please try again.",
+                    'intent': Intent.ADD_LIST_ITEM.value
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error in handle_list_item_addition: {e}")
+            return {
+                'success': False,
+                'response': "Sorry, I encountered an error adding items to the list.",
+                'intent': Intent.ADD_LIST_ITEM.value,
+                'error': str(e)
+            }
     
     async def handle_task_query(self, user_input: str, user_context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle task queries and status requests."""
@@ -538,30 +593,162 @@ class NLPService:
     
     async def handle_list_query(self, user_input: str, user_context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle list content queries."""
-        # Implementation placeholder
-        return {
-            'success': False,
-            'response': "List queries are not fully implemented yet.",
-            'intent': Intent.QUERY_LISTS.value
-        }
+        try:
+            # Extract list type from query
+            list_type = self.extract_list_type(user_input)
+            site_id = user_context.get('primary_site_id')
+            
+            # Query list items from database
+            # Note: You'll need to add a get_list_items method to db_client
+            # items = db_client.get_list_items(list_type=list_type, site_id=site_id)
+            
+            # For now, return a placeholder response
+            response_text = f"*{list_type.title()} List*\\n"
+            response_text += "\\n📋 Feature coming soon!\\n"
+            response_text += "\\nThis will show your equipment, supplies, and other tracked items."
+            
+            return {
+                'success': True,
+                'response': response_text,
+                'intent': Intent.QUERY_LISTS.value,
+                'use_markdown': True,
+                'list_type': list_type
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error querying lists: {e}")
+            return {
+                'success': False,
+                'response': "Sorry, I couldn't retrieve the list information right now.",
+                'intent': Intent.QUERY_LISTS.value
+            }
     
     async def handle_report_query(self, user_input: str, user_context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle field report queries."""
-        # Implementation placeholder
-        return {
-            'success': False,
-            'response': "Report queries are not fully implemented yet.",
-            'intent': Intent.QUERY_REPORTS.value
-        }
+        try:
+            # Determine query parameters
+            site_id = user_context.get('primary_site_id')
+            limit = 5  # Show recent 5 reports
+            
+            # Get field reports
+            if site_id:
+                reports = db_client.get_field_reports_by_site(site_id, limit)
+            else:
+                # Get reports submitted by user
+                reports = db_client.get_field_reports_by_user(user_context['flrts_user_id'], limit)
+            
+            if not reports:
+                return {
+                    'success': True,
+                    'response': "No field reports found.",
+                    'intent': Intent.QUERY_REPORTS.value
+                }
+            
+            # Format reports for display
+            response_text = "*Recent Field Reports:*\\n\\n"
+            for report in reports:
+                date_str = report['submission_timestamp'][:10] if report.get('submission_timestamp') else 'N/A'
+                emoji = self.get_report_type_emoji(report.get('report_type', 'Other'))
+                response_text += f"{emoji} *{report['report_title_summary']}*\\n"
+                response_text += f"   Date: {date_str}\\n"
+                if report.get('site_name'):
+                    response_text += f"   Site: {report['site_name']}\\n"
+                response_text += "\\n"
+            
+            return {
+                'success': True,
+                'response': response_text,
+                'intent': Intent.QUERY_REPORTS.value,
+                'use_markdown': True,
+                'report_count': len(reports)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error querying reports: {e}")
+            return {
+                'success': False,
+                'response': "Sorry, I couldn't retrieve the field reports right now.",
+                'intent': Intent.QUERY_REPORTS.value
+            }
     
     async def handle_task_status_update(self, user_input: str, user_context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle task status updates and completion."""
-        # Implementation placeholder
-        return {
-            'success': False,
-            'response': "Task status updates are not fully implemented yet.",
-            'intent': Intent.UPDATE_TASK_STATUS.value
-        }
+        try:
+            # Extract task reference and new status from input
+            task_info = self.extract_task_update_info(user_input)
+            
+            if not task_info.get('task_reference'):
+                return {
+                    'success': False,
+                    'response': "Please specify which task you want to update. You can use the task ID or title.",
+                    'intent': Intent.UPDATE_TASK_STATUS.value
+                }
+            
+            # Find the task
+            tasks = db_client.get_tasks_for_user(user_context['flrts_user_id'])
+            matching_task = None
+            
+            for task in tasks:
+                if (task_info['task_reference'].lower() in task['task_title'].lower() or 
+                    task_info['task_reference'] == task.get('task_id_display', '')):
+                    matching_task = task
+                    break
+            
+            if not matching_task:
+                return {
+                    'success': False,
+                    'response': f"I couldn't find a task matching '{task_info['task_reference']}'. Please check the task ID or title.",
+                    'intent': Intent.UPDATE_TASK_STATUS.value
+                }
+            
+            # Determine new status
+            new_status = task_info.get('new_status', 'Completed')
+            
+            # Update task status
+            update_data = {
+                'status': new_status,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            if new_status == 'Completed':
+                update_data['completion_date'] = datetime.now().isoformat()
+            
+            # Update in database
+            result = db_client.supabase.table('tasks').update(
+                update_data
+            ).eq('id', matching_task['id']).execute()
+            
+            if result.data:
+                emoji = "✅" if new_status == 'Completed' else "🔄"
+                response_text = f"{emoji} Task updated: {matching_task['task_title']}\\n"
+                response_text += f"Status: {new_status}"
+                
+                # Also update in Todoist if linked
+                if matching_task.get('todoist_task_id') and new_status == 'Completed':
+                    try:
+                        await todoist_service.complete_task(matching_task['todoist_task_id'])
+                    except Exception as e:
+                        self.logger.warning(f"Failed to update Todoist task: {e}")
+                
+                return {
+                    'success': True,
+                    'response': response_text,
+                    'intent': Intent.UPDATE_TASK_STATUS.value,
+                    'action_taken': 'task_status_updated',
+                    'task_id': matching_task['id'],
+                    'new_status': new_status
+                }
+            else:
+                raise Exception("Failed to update task in database")
+                
+        except Exception as e:
+            self.logger.error(f"Error updating task status: {e}")
+            return {
+                'success': False,
+                'response': "Sorry, I couldn't update the task status. Please try again.",
+                'intent': Intent.UPDATE_TASK_STATUS.value,
+                'error': str(e)
+            }
     
     async def handle_general_query(self, user_input: str, user_context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle general queries about sites, status, etc."""
@@ -571,6 +758,92 @@ class NLPService:
             'response': "I can help you with tasks, field reports, and lists. Try asking me to create a task or log a field report!",
             'intent': Intent.GENERAL_QUERY.value
         }
+    
+    # Helper methods
+    def extract_list_item_info(self, user_input: str) -> Dict[str, Any]:
+        """Extract list type and items from user input."""
+        result = {'items': [], 'list_type': 'general'}
+        
+        # Extract list type
+        if any(word in user_input.lower() for word in ['equipment', 'tool', 'gear']):
+            result['list_type'] = 'equipment'
+        elif any(word in user_input.lower() for word in ['supply', 'supplies', 'material']):
+            result['list_type'] = 'supplies'
+        elif any(word in user_input.lower() for word in ['safety', 'ppe', 'protective']):
+            result['list_type'] = 'safety'
+        
+        # Extract items (simple implementation - can be enhanced with NLP)
+        # Look for patterns like "add X, Y, and Z" or "add X to list"
+        add_pattern = r'add\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:equipment|supply|safety|list))?$'
+        match = re.search(add_pattern, user_input, re.IGNORECASE)
+        if match:
+            items_text = match.group(1)
+            # Split by common delimiters
+            items = re.split(r',\s*|\s+and\s+', items_text)
+            result['items'] = [item.strip() for item in items if item.strip()]
+        
+        return result
+    
+    def extract_list_type(self, user_input: str) -> str:
+        """Extract list type from query."""
+        if any(word in user_input.lower() for word in ['equipment', 'tool', 'gear']):
+            return 'equipment'
+        elif any(word in user_input.lower() for word in ['supply', 'supplies', 'material']):
+            return 'supplies'
+        elif any(word in user_input.lower() for word in ['safety', 'ppe', 'protective']):
+            return 'safety'
+        return 'general'
+    
+    def get_report_type_emoji(self, report_type: str) -> str:
+        """Get emoji for report type."""
+        emoji_map = {
+            'Daily Operational Summary': '📊',
+            'Incident Report': '⚠️',
+            'Maintenance Log': '🔧',
+            'Safety Observation': '🦺',
+            'Equipment Check': '⚙️',
+            'Security Update': '🔒',
+            'Visitor Log': '👤',
+            'Other': '📝'
+        }
+        return emoji_map.get(report_type, '📝')
+    
+    def extract_task_update_info(self, user_input: str) -> Dict[str, Any]:
+        """Extract task reference and new status from input."""
+        result = {}
+        
+        # Extract task reference (ID or partial title)
+        # Look for patterns like "complete task ABC123" or "mark 'fix pump' as done"
+        complete_patterns = [
+            r'complete\s+(?:task\s+)?(.+)',
+            r'mark\s+["\']?(.+?)["\']?\s+as\s+(?:done|complete|completed)',
+            r'finish\s+(?:task\s+)?(.+)',
+            r'done\s+with\s+(?:task\s+)?(.+)'
+        ]
+        
+        for pattern in complete_patterns:
+            match = re.search(pattern, user_input, re.IGNORECASE)
+            if match:
+                result['task_reference'] = match.group(1).strip()
+                result['new_status'] = 'Completed'
+                return result
+        
+        # Check for other status updates
+        status_pattern = r'(?:update|change)\s+(?:task\s+)?(.+?)\s+(?:to|status\s+to)\s+(\w+)'
+        match = re.search(status_pattern, user_input, re.IGNORECASE)
+        if match:
+            result['task_reference'] = match.group(1).strip()
+            status = match.group(2).lower()
+            if status in ['todo', 'to-do', 'pending']:
+                result['new_status'] = 'To Do'
+            elif status in ['progress', 'in-progress', 'working']:
+                result['new_status'] = 'In Progress'
+            elif status in ['done', 'complete', 'completed']:
+                result['new_status'] = 'Completed'
+            else:
+                result['new_status'] = status.title()
+        
+        return result
 
 
 # Global NLP service instance

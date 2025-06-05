@@ -300,7 +300,7 @@ def register_request_logging(app: Flask) -> None:
         app.logger.debug(f"Request: {request.method} {request.path}")
         if request.args:
             app.logger.debug(f"Query params: {dict(request.args)}")
-        if request.method in ["POST", "PUT", "PATCH"] and request.is_json and request.json:
+        if request.json:
             app.logger.debug(f"Request body: {request.json}")
     
     @app.after_request
